@@ -18,9 +18,9 @@ void main() {
     final testNote = ChecklistNote(
       id: 'test-note-1',
       title: 'Test Note',
-      items: [
-        const ChecklistItem(id: 'item-1', text: 'Task 1'),
-        const ChecklistItem(id: 'item-2', text: 'Task 2'),
+      items: const [
+        ChecklistItem(id: 'item-1', text: 'Task 1'),
+        ChecklistItem(id: 'item-2', text: 'Task 2'),
       ],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),

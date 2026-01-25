@@ -54,7 +54,7 @@ jobs:
           retention-days: 30
 
       - name: Delete existing dev release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push'
         run: |
           gh release delete dev-latest --yes || true
           git push origin :refs/tags/dev-latest || true
@@ -62,13 +62,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create dev release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: dev-latest
           name: "Dev Build (Latest)"
           body: |
-            **Automatic dev build** - Updated on each push to main.
+            **Automatic dev build** - Updated on each push.
+
+            Branch: `${{ github.ref_name }}`
+            Commit: `${{ github.sha }}`
 
             This APK uses fake data (no backend required).
 
