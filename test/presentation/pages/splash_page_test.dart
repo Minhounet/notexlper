@@ -9,43 +9,43 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: SplashPage(
-            splashDuration: Duration.zero,
+            splashDuration: Duration(milliseconds: 100),
           ),
         ),
       );
 
       expect(find.text(AppConstants.appName), findsOneWidget);
 
-      // Complete any pending timers
-      await tester.pumpAndSettle();
+      // Advance timer to complete it before test ends
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('should display app icon', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: SplashPage(
-            splashDuration: Duration.zero,
+            splashDuration: Duration(milliseconds: 100),
           ),
         ),
       );
 
       expect(find.byIcon(Icons.checklist_rounded), findsOneWidget);
 
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('should display loading indicator', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: SplashPage(
-            splashDuration: Duration.zero,
+            splashDuration: Duration(milliseconds: 100),
           ),
         ),
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('should call onInitialized callback after delay',
@@ -66,7 +66,7 @@ void main() {
       expect(wasInitialized, false);
 
       // Wait for the splash duration
-      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pump(const Duration(milliseconds: 100));
 
       expect(wasInitialized, true);
     });
