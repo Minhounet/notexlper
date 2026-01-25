@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -17,15 +19,26 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
     _initializeApp();
   }
 
-  Future<void> _initializeApp() async {
-    await Future.delayed(widget.splashDuration);
-    widget.onInitialized?.call();
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _initializeApp() {
+    _timer = Timer(widget.splashDuration, () {
+      if (mounted) {
+        widget.onInitialized?.call();
+      }
+    });
   }
 
   @override

@@ -8,31 +8,44 @@ void main() {
     testWidgets('should display app name NOTEXLPER', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: SplashPage(),
+          home: SplashPage(
+            splashDuration: Duration.zero,
+          ),
         ),
       );
 
       expect(find.text(AppConstants.appName), findsOneWidget);
+
+      // Complete any pending timers
+      await tester.pumpAndSettle();
     });
 
     testWidgets('should display app icon', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: SplashPage(),
+          home: SplashPage(
+            splashDuration: Duration.zero,
+          ),
         ),
       );
 
       expect(find.byIcon(Icons.checklist_rounded), findsOneWidget);
+
+      await tester.pumpAndSettle();
     });
 
     testWidgets('should display loading indicator', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: SplashPage(),
+          home: SplashPage(
+            splashDuration: Duration.zero,
+          ),
         ),
       );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.pumpAndSettle();
     });
 
     testWidgets('should call onInitialized callback after delay',
