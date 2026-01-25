@@ -1,0 +1,38 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_empty_else
+    - avoid_print
+    - avoid_relative_lib_imports
+    - avoid_returning_null_for_future
+    - avoid_slow_async_io
+    - avoid_types_as_parameter_names
+    - avoid_unused_constructor_parameters
+    - await_only_futures
+    - camel_case_types
+    - cancel_subscriptions
+    - close_sinks
+    - constant_identifier_names
+    - control_flow_in_finally
+    - empty_statements
+    - hash_and_equals
+    - no_duplicate_case_values
+    - no_logic_in_create_state
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_fields
+    - prefer_final_locals
+    - prefer_single_quotes
+    - sort_child_properties_last
+    - test_types_in_equals
+    - throw_in_finally
+    - unnecessary_statements
+    - use_key_in_widget_constructors
+
+analyzer:
+  exclude:
+    - '**/*.g.dart'
+    - '**/*.freezed.dart'
+    - 'lib/generated/**'
