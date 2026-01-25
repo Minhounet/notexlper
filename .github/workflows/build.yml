@@ -7,6 +7,9 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,9 +46,34 @@ jobs:
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/notexlper-dev.apk
 
-      - name: Upload APK
+      - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: notexlper-apk
           path: build/app/outputs/flutter-apk/notexlper-dev.apk
           retention-days: 30
+
+      - name: Delete existing dev release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gh release delete dev-latest --yes || true
+          git push origin :refs/tags/dev-latest || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create dev release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: dev-latest
+          name: "Dev Build (Latest)"
+          body: |
+            **Automatic dev build** - Updated on each push to main.
+
+            This APK uses fake data (no backend required).
+
+            Download and install `notexlper-dev.apk` on your Android device.
+          files: build/app/outputs/flutter-apk/notexlper-dev.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
