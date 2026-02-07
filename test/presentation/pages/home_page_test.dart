@@ -11,7 +11,7 @@ void main() {
   late FakeChecklistDataSource dataSource;
 
   setUp(() {
-    dataSource = FakeChecklistDataSource();
+    dataSource = FakeChecklistDataSource(delay: Duration.zero);
     dataSource.clear();
   });
 

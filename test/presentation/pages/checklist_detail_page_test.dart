@@ -12,7 +12,7 @@ void main() {
   final now = DateTime(2024, 6, 1);
 
   setUp(() {
-    dataSource = FakeChecklistDataSource();
+    dataSource = FakeChecklistDataSource(delay: Duration.zero);
     dataSource.clear();
   });
 
