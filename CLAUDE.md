@@ -49,6 +49,7 @@ Configured via `--dart-define=ENV=dev|prod`
 - Unit tests for use cases and repositories
 - Widget tests for critical UI components
 - Integration tests for complete flows
+- **TDD approach**: Write tests first, then implement
 
 Test files mirror lib/ structure in test/
 
@@ -64,15 +65,55 @@ flutter run --dart-define=ENV=prod
 flutter test
 
 # Build APK
-flutter build apk --release
+flutter build apk --release --dart-define=ENV=dev
 ```
 
-## CI/CD
-GitHub Actions builds APK on every push to main branches.
-Download APK from Actions artifacts.
+## CI/CD - GitHub Actions
+
+### Workflow Behavior
+- **Trigger**: Every push to `main`, `develop`, `claude/*` branches
+- **Steps**:
+  1. Analyze code (`flutter analyze`)
+  2. Run tests (`flutter test`)
+  3. Build APK (`flutter build apk`)
+  4. Create/update `dev-latest` release with APK
+
+### Download APK
+Go to **GitHub > Releases > dev-latest** to download the latest APK.
+
+### IMPORTANT: Workflow Verification
+**Before considering a task complete, ALWAYS verify the GitHub Actions workflow passes:**
+
+1. Push your changes
+2. Go to GitHub > Actions tab
+3. Wait for the workflow to complete
+4. Ensure ALL steps pass:
+   - ✅ Analyze code (no errors)
+   - ✅ Run tests (all tests pass)
+   - ✅ Build APK (builds successfully)
+   - ✅ Create release (APK uploaded)
+
+**If workflow fails:**
+- Check the error logs
+- Fix the issue
+- Push again
+- Repeat until green
+
+### Common CI Issues
+- **Lint warnings**: Fix or add to `analysis_options.yaml` exceptions
+- **Test failures**: Check timer handling, async operations
+- **Build failures**: Verify Android config, pubspec.yaml
+- **Gradle issues**: Ensure all android/ files are present
 
 ## Conventions
 - Entity names: PascalCase
 - File names: snake_case
 - Tests: `*_test.dart`
 - One class per file (except small related classes)
+- Commit messages: `type: description` (feat, fix, refactor, test, docs)
+
+## Flutter Widget Testing Tips
+- Use `tester.pump(duration)` to advance timers
+- Use `tester.pumpAndSettle()` for animations
+- Cancel timers in `dispose()` to avoid "pending timer" errors
+- Use short durations in tests (e.g., 100ms instead of 2s)

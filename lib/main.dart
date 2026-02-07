@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'presentation/pages/home_page.dart';
+import 'presentation/pages/splash_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +33,32 @@ class NotexlperApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
-      home: const HomePage(),
+      home: const SplashWrapper(),
     );
+  }
+}
+
+class SplashWrapper extends StatefulWidget {
+  const SplashWrapper({super.key});
+
+  @override
+  State<SplashWrapper> createState() => _SplashWrapperState();
+}
+
+class _SplashWrapperState extends State<SplashWrapper> {
+  bool _initialized = false;
+
+  void _onInitialized() {
+    setState(() {
+      _initialized = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_initialized) {
+      return const HomePage();
+    }
+    return SplashPage(onInitialized: _onInitialized);
   }
 }

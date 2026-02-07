@@ -16,13 +16,13 @@ class FakeChecklistDataSource {
       id: 'sample-1',
       title: 'Sample Checklist',
       items: [
-        ChecklistItem(
+        const ChecklistItem(
           id: 'item-1',
           text: 'First task',
           isChecked: false,
           order: 0,
         ),
-        ChecklistItem(
+        const ChecklistItem(
           id: 'item-2',
           text: 'Second task',
           isChecked: true,
