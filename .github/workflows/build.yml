@@ -53,22 +53,36 @@ jobs:
           path: build/app/outputs/flutter-apk/notexlper-dev.apk
           retention-days: 30
 
-      - name: Delete existing dev release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Set release tag
+        if: github.event_name == 'push'
+        id: release_tag
         run: |
-          gh release delete dev-latest --yes || true
-          git push origin :refs/tags/dev-latest || true
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            echo "tag=dev-latest" >> $GITHUB_OUTPUT
+            echo "name=Dev Build (Latest)" >> $GITHUB_OUTPUT
+          else
+            SANITIZED=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            echo "tag=branch-${SANITIZED}" >> $GITHUB_OUTPUT
+            echo "name=Branch Build: ${BRANCH}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete existing release
+        if: github.event_name == 'push'
+        run: |
+          gh release delete "${{ steps.release_tag.outputs.tag }}" --yes || true
+          git push origin ":refs/tags/${{ steps.release_tag.outputs.tag }}" || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create dev release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Create release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: dev-latest
-          name: "Dev Build (Latest)"
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: ${{ steps.release_tag.outputs.name }}
           body: |
-            **Automatic dev build** - Updated on each push.
+            **Automatic build** - Updated on each push.
 
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`

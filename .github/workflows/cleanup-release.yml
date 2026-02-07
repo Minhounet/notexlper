@@ -1,0 +1,29 @@
+name: Cleanup Branch Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, master]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Delete branch release
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          SANITIZED=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          TAG="branch-${SANITIZED}"
+          echo "Deleting release for tag: $TAG (branch: $BRANCH)"
+          gh release delete "$TAG" --yes || true
+          git push origin ":refs/tags/$TAG" || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
