@@ -54,7 +54,7 @@ jobs:
           retention-days: 30
 
       - name: Delete existing dev release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           gh release delete dev-latest --yes || true
           git push origin :refs/tags/dev-latest || true
@@ -62,7 +62,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create dev release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: dev-latest
