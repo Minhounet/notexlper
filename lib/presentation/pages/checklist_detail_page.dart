@@ -208,52 +208,136 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
   Widget _buildContent(List<ChecklistItem> sortedItems, List<Category> categories) {
     switch (_displayMode) {
       case ChecklistDisplayMode.flat:
-        return _buildFlatList(_applySorting(sortedItems), categories);
+        return _buildFlatList(sortedItems, categories);
       case ChecklistDisplayMode.groupedByCategory:
         return _buildGroupedList(sortedItems, categories);
     }
   }
 
+  Widget _buildItemTile(ChecklistItem item, List<Category> categories,
+      {bool showCategory = true}) {
+    return _ChecklistItemTile(
+      key: ValueKey(item.id),
+      item: item,
+      controller: _getItemController(item),
+      categories: categories,
+      showCategory: showCategory,
+      onToggle: () => _toggleItem(item.id),
+      onTextChanged: (text) => _updateItemText(item.id, text),
+      onDelete: () => _removeItem(item.id),
+      onCategoryChanged: (categoryId) =>
+          _updateItemCategory(item.id, categoryId),
+      onCreateCategory: () => _createCategoryInline(item.id),
+    );
+  }
+
   Widget _buildFlatList(List<ChecklistItem> items, List<Category> categories) {
-    return ListView.builder(
+    final displayItems = _checkedAtBottom ? _applySorting(items) : items;
+    final hasUnchecked = items.any((i) => !i.isChecked);
+    final hasChecked = items.any((i) => i.isChecked);
+    final showSeparator = _checkedAtBottom && hasUnchecked && hasChecked;
+
+    final widgets = <Widget>[];
+    var separatorAdded = false;
+    for (final item in displayItems) {
+      if (showSeparator && !separatorAdded && item.isChecked) {
+        widgets.add(const _CheckedSeparator());
+        separatorAdded = true;
+      }
+      widgets.add(_buildItemTile(item, categories));
+    }
+
+    return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _ChecklistItemTile(
-          key: ValueKey(item.id),
-          item: item,
-          controller: _getItemController(item),
-          categories: categories,
-          onToggle: () => _toggleItem(item.id),
-          onTextChanged: (text) => _updateItemText(item.id, text),
-          onDelete: () => _removeItem(item.id),
-          onCategoryChanged: (categoryId) =>
-              _updateItemCategory(item.id, categoryId),
-          onCreateCategory: () => _createCategoryInline(item.id),
-        );
-      },
+      children: widgets,
     );
   }
 
   Widget _buildGroupedList(List<ChecklistItem> sortedItems, List<Category> categories) {
     final categoryMap = {for (final c in categories) c.id: c};
 
-    // Group items by categoryId
-    final Map<String?, List<ChecklistItem>> groups = {};
-    for (final item in sortedItems) {
-      groups.putIfAbsent(item.categoryId, () => []).add(item);
+    if (_checkedAtBottom) {
+      // Separate unchecked and checked items
+      final unchecked = sortedItems.where((i) => !i.isChecked).toList();
+      final checked = sortedItems.where((i) => i.isChecked).toList();
+
+      // Group only unchecked items by category
+      final groups = _groupByCategory(unchecked);
+      final orderedKeys = _orderedCategoryKeys(groups, categories);
+
+      final widgets = <Widget>[];
+      for (final categoryId in orderedKeys) {
+        final category = categoryId != null ? categoryMap[categoryId] : null;
+        widgets.add(_CategoryGroup(
+          category: category,
+          categoryId: categoryId,
+          items: groups[categoryId]!,
+          allCategories: categories,
+          getItemController: _getItemController,
+          onToggle: _toggleItem,
+          onTextChanged: _updateItemText,
+          onDelete: _removeItem,
+          onCategoryChanged: _updateItemCategory,
+          onCreateCategoryInline: _createCategoryInline,
+        ));
+      }
+
+      if (checked.isNotEmpty && unchecked.isNotEmpty) {
+        widgets.add(const _CheckedSeparator());
+      }
+      for (final item in checked) {
+        widgets.add(_buildItemTile(item, categories, showCategory: false));
+      }
+
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        children: widgets,
+      );
     }
 
-    // Build ordered list of category keys: known categories first (in categories order),
-    // then null (uncategorized) last
+    // No checked-at-bottom: group all items normally
+    final groups = _groupByCategory(sortedItems);
+    final orderedKeys = _orderedCategoryKeys(groups, categories);
+
+    final widgets = <Widget>[];
+    for (final categoryId in orderedKeys) {
+      final category = categoryId != null ? categoryMap[categoryId] : null;
+      widgets.add(_CategoryGroup(
+        category: category,
+        categoryId: categoryId,
+        items: groups[categoryId]!,
+        allCategories: categories,
+        getItemController: _getItemController,
+        onToggle: _toggleItem,
+        onTextChanged: _updateItemText,
+        onDelete: _removeItem,
+        onCategoryChanged: _updateItemCategory,
+        onCreateCategoryInline: _createCategoryInline,
+      ));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      children: widgets,
+    );
+  }
+
+  Map<String?, List<ChecklistItem>> _groupByCategory(List<ChecklistItem> items) {
+    final Map<String?, List<ChecklistItem>> groups = {};
+    for (final item in items) {
+      groups.putIfAbsent(item.categoryId, () => []).add(item);
+    }
+    return groups;
+  }
+
+  List<String?> _orderedCategoryKeys(
+      Map<String?, List<ChecklistItem>> groups, List<Category> categories) {
     final orderedKeys = <String?>[];
     for (final cat in categories) {
       if (groups.containsKey(cat.id)) {
         orderedKeys.add(cat.id);
       }
     }
-    // Add any unknown categoryIds (category was deleted but items still reference it)
     for (final key in groups.keys) {
       if (key != null && !orderedKeys.contains(key)) {
         orderedKeys.add(key);
@@ -262,29 +346,7 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     if (groups.containsKey(null)) {
       orderedKeys.add(null);
     }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: orderedKeys.length,
-      itemBuilder: (context, index) {
-        final categoryId = orderedKeys[index];
-        final category = categoryId != null ? categoryMap[categoryId] : null;
-        final groupItems = _applySorting(groups[categoryId]!);
-
-        return _CategoryGroup(
-          category: category,
-          categoryId: categoryId,
-          items: groupItems,
-          allCategories: categories,
-          getItemController: _getItemController,
-          onToggle: _toggleItem,
-          onTextChanged: _updateItemText,
-          onDelete: _removeItem,
-          onCategoryChanged: _updateItemCategory,
-          onCreateCategoryInline: _createCategoryInline,
-        );
-      },
-    );
+    return orderedKeys;
   }
 
   Future<void> _createCategoryInline(String itemId) async {
@@ -448,6 +510,7 @@ class _CategoryGroup extends StatelessWidget {
               item: item,
               controller: getItemController(item),
               categories: allCategories,
+              showCategory: false,
               onToggle: () => onToggle(item.id),
               onTextChanged: (text) => onTextChanged(item.id, text),
               onDelete: () => onDelete(item.id),
@@ -459,10 +522,38 @@ class _CategoryGroup extends StatelessWidget {
   }
 }
 
+class _CheckedSeparator extends StatelessWidget {
+  const _CheckedSeparator();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      child: Row(
+        children: [
+          const Expanded(child: Divider()),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'Checked',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const Expanded(child: Divider()),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChecklistItemTile extends StatelessWidget {
   final ChecklistItem item;
   final TextEditingController controller;
   final List<Category> categories;
+  final bool showCategory;
   final VoidCallback onToggle;
   final ValueChanged<String> onTextChanged;
   final VoidCallback onDelete;
@@ -474,6 +565,7 @@ class _ChecklistItemTile extends StatelessWidget {
     required this.item,
     required this.controller,
     required this.categories,
+    this.showCategory = true,
     required this.onToggle,
     required this.onTextChanged,
     required this.onDelete,
@@ -522,15 +614,16 @@ class _ChecklistItemTile extends StatelessWidget {
             ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.only(left: 48, bottom: 4),
-          child: _CategorySelector(
-            categories: categories,
-            selectedCategory: category,
-            onCategoryChanged: onCategoryChanged,
-            onCreateCategory: onCreateCategory,
+        if (showCategory)
+          Padding(
+            padding: const EdgeInsets.only(left: 48, bottom: 4),
+            child: _CategorySelector(
+              categories: categories,
+              selectedCategory: category,
+              onCategoryChanged: onCategoryChanged,
+              onCreateCategory: onCreateCategory,
+            ),
           ),
-        ),
       ],
     );
   }

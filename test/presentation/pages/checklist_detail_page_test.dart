@@ -381,6 +381,38 @@ void main() {
       expect(checkboxes[1].value, false); // Unchecked third
       expect(checkboxes[2].value, true); // Checked first (moved to bottom)
     });
+
+    testWidgets('should show separator between unchecked and checked items',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'Done', isChecked: true, order: 0),
+          ChecklistItem(
+              id: 'i2', text: 'Todo', isChecked: false, order: 1),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // No separator initially
+      expect(find.text('Checked'), findsNothing);
+
+      // Enable checked at bottom
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Checked at bottom'));
+      await tester.pumpAndSettle();
+
+      // Separator should appear between unchecked and checked sections
+      expect(find.text('Checked'), findsOneWidget);
+    });
   });
 
   group('Group by category mode', () {
@@ -466,10 +498,13 @@ void main() {
     });
 
     testWidgets(
-        'should move checked items to bottom within each group when both modes are active',
+        'should move all checked items to full bottom when both modes are active',
         (tester) async {
       await categoryDataSource.createCategory(
         const Category(id: 'cat-1', name: 'Work', colorValue: 0xFF2196F3),
+      );
+      await categoryDataSource.createCategory(
+        const Category(id: 'cat-2', name: 'Shopping', colorValue: 0xFF4CAF50),
       );
 
       final note = ChecklistNote(
@@ -488,6 +523,18 @@ void main() {
               isChecked: false,
               order: 1,
               categoryId: 'cat-1'),
+          ChecklistItem(
+              id: 'i3',
+              text: 'Done shopping',
+              isChecked: true,
+              order: 2,
+              categoryId: 'cat-2'),
+          ChecklistItem(
+              id: 'i4',
+              text: 'Pending shopping',
+              isChecked: false,
+              order: 3,
+              categoryId: 'cat-2'),
         ],
         createdAt: now,
         updatedAt: now,
@@ -509,11 +556,16 @@ void main() {
       await tester.tap(find.text('Checked at bottom'));
       await tester.pumpAndSettle();
 
-      // Within the Work group, unchecked should be first
+      // Unchecked items from groups first, then all checked at the bottom
       final checkboxes =
           tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
-      expect(checkboxes[0].value, false); // Pending work first
-      expect(checkboxes[1].value, true); // Done work at bottom
+      expect(checkboxes[0].value, false); // Pending work (Work group)
+      expect(checkboxes[1].value, false); // Pending shopping (Shopping group)
+      expect(checkboxes[2].value, true); // Done work (checked section)
+      expect(checkboxes[3].value, true); // Done shopping (checked section)
+
+      // Separator should be visible
+      expect(find.text('Checked'), findsOneWidget);
     });
   });
 }
