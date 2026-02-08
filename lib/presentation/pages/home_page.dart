@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../domain/entities/category.dart';
 import '../../domain/entities/checklist_item.dart';
 import '../../domain/entities/checklist_note.dart';
+import '../providers/category_providers.dart';
 import '../providers/checklist_providers.dart';
+import 'category_admin_page.dart';
 import 'checklist_detail_page.dart';
 
 class HomePage extends ConsumerWidget {
@@ -13,6 +16,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(checklistListProvider);
+    final categoriesAsync = ref.watch(categoryListProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -23,6 +27,19 @@ class HomePage extends ConsumerWidget {
               ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.label_outline),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CategoryAdminPage(),
+                ),
+              );
+            },
+            tooltip: 'Manage Categories',
+          ),
+        ],
       ),
       body: notesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -42,6 +59,7 @@ class HomePage extends ConsumerWidget {
           ),
         ),
         data: (notes) {
+          final categories = categoriesAsync.valueOrNull ?? [];
           if (notes.isEmpty) {
             return Center(
               child: Column(
@@ -75,7 +93,7 @@ class HomePage extends ConsumerWidget {
             itemCount: notes.length,
             itemBuilder: (context, index) {
               final note = notes[index];
-              return _ChecklistCard(note: note);
+              return _ChecklistCard(note: note, categories: categories);
             },
           );
         },
@@ -120,8 +138,9 @@ class HomePage extends ConsumerWidget {
 
 class _ChecklistCard extends ConsumerWidget {
   final ChecklistNote note;
+  final List<Category> categories;
 
-  const _ChecklistCard({super.key, required this.note});
+  const _ChecklistCard({super.key, required this.note, required this.categories});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -155,37 +174,61 @@ class _ChecklistCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               if (note.title.isNotEmpty) const SizedBox(height: 8),
-              ...previewItems.map((item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      children: [
-                        Icon(
-                          item.isChecked
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 20,
-                          color: item.isChecked
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
+              ...previewItems.map((item) {
+                final category = item.categoryId != null
+                    ? categories.where((c) => c.id == item.categoryId).firstOrNull
+                    : null;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Icon(
+                        item.isChecked
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                        size: 20,
+                        color: item.isChecked
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item.text.isEmpty ? 'Empty item' : item.text,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            decoration:
+                                item.isChecked ? TextDecoration.lineThrough : null,
+                            color: item.isChecked
+                                ? theme.colorScheme.onSurfaceVariant
+                                : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                      ),
+                      if (category != null)
+                        Container(
+                          margin: const EdgeInsets.only(left: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Color(category.colorValue).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: Text(
-                            item.text.isEmpty ? 'Empty item' : item.text,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              decoration:
-                                  item.isChecked ? TextDecoration.lineThrough : null,
-                              color: item.isChecked
-                                  ? theme.colorScheme.onSurfaceVariant
-                                  : null,
+                            category.name,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Color(category.colorValue),
+                              fontSize: 10,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ],
-                    ),
-                  )),
+                    ],
+                  ),
+                );
+              }),
               if (hasMore)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
