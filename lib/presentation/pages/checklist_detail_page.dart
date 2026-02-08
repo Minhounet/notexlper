@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/checklist_item.dart';
 import '../../domain/entities/checklist_note.dart';
+import '../models/display_mode.dart';
 import '../providers/category_providers.dart';
 import '../providers/checklist_providers.dart';
 import 'category_admin_page.dart';
@@ -21,6 +22,8 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
   late ChecklistNote _note;
   late TextEditingController _titleController;
   final Map<String, TextEditingController> _itemControllers = {};
+  ChecklistDisplayMode _displayMode = ChecklistDisplayMode.flat;
+  bool _checkedAtBottom = false;
 
   @override
   void initState() {
@@ -123,6 +126,13 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     _save();
   }
 
+  List<ChecklistItem> _applySorting(List<ChecklistItem> items) {
+    if (!_checkedAtBottom) return items;
+    final unchecked = items.where((i) => !i.isChecked).toList();
+    final checked = items.where((i) => i.isChecked).toList();
+    return [...unchecked, ...checked];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -149,7 +159,16 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-            const SizedBox(width: 16),
+            _DisplayModeMenuButton(
+              displayMode: _displayMode,
+              checkedAtBottom: _checkedAtBottom,
+              onDisplayModeChanged: (mode) {
+                setState(() => _displayMode = mode);
+              },
+              onCheckedAtBottomChanged: (value) {
+                setState(() => _checkedAtBottom = value);
+              },
+            ),
           ],
         ),
         body: Column(
@@ -172,8 +191,8 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
             Expanded(
               child: categoriesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, __) => _buildItemList(sortedItems, []),
-                data: (categories) => _buildItemList(sortedItems, categories),
+                error: (_, __) => _buildContent(sortedItems, []),
+                data: (categories) => _buildContent(sortedItems, categories),
               ),
             ),
           ],
@@ -186,12 +205,21 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     );
   }
 
-  Widget _buildItemList(List<ChecklistItem> sortedItems, List<Category> categories) {
+  Widget _buildContent(List<ChecklistItem> sortedItems, List<Category> categories) {
+    switch (_displayMode) {
+      case ChecklistDisplayMode.flat:
+        return _buildFlatList(_applySorting(sortedItems), categories);
+      case ChecklistDisplayMode.groupedByCategory:
+        return _buildGroupedList(sortedItems, categories);
+    }
+  }
+
+  Widget _buildFlatList(List<ChecklistItem> items, List<Category> categories) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: sortedItems.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        final item = sortedItems[index];
+        final item = items[index];
         return _ChecklistItemTile(
           key: ValueKey(item.id),
           item: item,
@@ -208,6 +236,57 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     );
   }
 
+  Widget _buildGroupedList(List<ChecklistItem> sortedItems, List<Category> categories) {
+    final categoryMap = {for (final c in categories) c.id: c};
+
+    // Group items by categoryId
+    final Map<String?, List<ChecklistItem>> groups = {};
+    for (final item in sortedItems) {
+      groups.putIfAbsent(item.categoryId, () => []).add(item);
+    }
+
+    // Build ordered list of category keys: known categories first (in categories order),
+    // then null (uncategorized) last
+    final orderedKeys = <String?>[];
+    for (final cat in categories) {
+      if (groups.containsKey(cat.id)) {
+        orderedKeys.add(cat.id);
+      }
+    }
+    // Add any unknown categoryIds (category was deleted but items still reference it)
+    for (final key in groups.keys) {
+      if (key != null && !orderedKeys.contains(key)) {
+        orderedKeys.add(key);
+      }
+    }
+    if (groups.containsKey(null)) {
+      orderedKeys.add(null);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: orderedKeys.length,
+      itemBuilder: (context, index) {
+        final categoryId = orderedKeys[index];
+        final category = categoryId != null ? categoryMap[categoryId] : null;
+        final groupItems = _applySorting(groups[categoryId]!);
+
+        return _CategoryGroup(
+          category: category,
+          categoryId: categoryId,
+          items: groupItems,
+          allCategories: categories,
+          getItemController: _getItemController,
+          onToggle: _toggleItem,
+          onTextChanged: _updateItemText,
+          onDelete: _removeItem,
+          onCategoryChanged: _updateItemCategory,
+          onCreateCategoryInline: _createCategoryInline,
+        );
+      },
+    );
+  }
+
   Future<void> _createCategoryInline(String itemId) async {
     final result = await showDialog<Category>(
       context: context,
@@ -217,6 +296,176 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
       await ref.read(categoryListProvider.notifier).createCategory(result);
       _updateItemCategory(itemId, result.id);
     }
+  }
+}
+
+class _DisplayModeMenuButton extends StatelessWidget {
+  final ChecklistDisplayMode displayMode;
+  final bool checkedAtBottom;
+  final ValueChanged<ChecklistDisplayMode> onDisplayModeChanged;
+  final ValueChanged<bool> onCheckedAtBottomChanged;
+
+  const _DisplayModeMenuButton({
+    required this.displayMode,
+    required this.checkedAtBottom,
+    required this.onDisplayModeChanged,
+    required this.onCheckedAtBottomChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.view_list),
+      tooltip: 'Display mode',
+      onSelected: (value) {
+        switch (value) {
+          case 'flat':
+            onDisplayModeChanged(ChecklistDisplayMode.flat);
+          case 'grouped':
+            onDisplayModeChanged(ChecklistDisplayMode.groupedByCategory);
+          case 'checked_bottom':
+            onCheckedAtBottomChanged(!checkedAtBottom);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'flat',
+          child: Row(
+            children: [
+              Icon(
+                Icons.list,
+                color: displayMode == ChecklistDisplayMode.flat
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              const Text('Flat view'),
+              if (displayMode == ChecklistDisplayMode.flat) ...[
+                const Spacer(),
+                Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 18),
+              ],
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'grouped',
+          child: Row(
+            children: [
+              Icon(
+                Icons.category,
+                color: displayMode == ChecklistDisplayMode.groupedByCategory
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              const Text('Group by category'),
+              if (displayMode == ChecklistDisplayMode.groupedByCategory) ...[
+                const Spacer(),
+                Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 18),
+              ],
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'checked_bottom',
+          child: Row(
+            children: [
+              Icon(
+                Icons.vertical_align_bottom,
+                color: checkedAtBottom
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              const Text('Checked at bottom'),
+              if (checkedAtBottom) ...[
+                const Spacer(),
+                Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 18),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CategoryGroup extends StatelessWidget {
+  final Category? category;
+  final String? categoryId;
+  final List<ChecklistItem> items;
+  final List<Category> allCategories;
+  final TextEditingController Function(ChecklistItem) getItemController;
+  final void Function(String) onToggle;
+  final void Function(String, String) onTextChanged;
+  final void Function(String) onDelete;
+  final void Function(String, String?) onCategoryChanged;
+  final void Function(String) onCreateCategoryInline;
+
+  const _CategoryGroup({
+    required this.category,
+    required this.categoryId,
+    required this.items,
+    required this.allCategories,
+    required this.getItemController,
+    required this.onToggle,
+    required this.onTextChanged,
+    required this.onDelete,
+    required this.onCategoryChanged,
+    required this.onCreateCategoryInline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final headerText = category?.name ?? 'Uncategorized';
+    final headerColor = category != null
+        ? Color(category!.colorValue)
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: headerColor,
+                radius: 6,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                headerText,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: headerColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '(${items.length})',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ...items.map((item) => _ChecklistItemTile(
+              key: ValueKey(item.id),
+              item: item,
+              controller: getItemController(item),
+              categories: allCategories,
+              onToggle: () => onToggle(item.id),
+              onTextChanged: (text) => onTextChanged(item.id, text),
+              onDelete: () => onDelete(item.id),
+              onCategoryChanged: (catId) => onCategoryChanged(item.id, catId),
+              onCreateCategory: () => onCreateCategoryInline(item.id),
+            )),
+      ],
+    );
   }
 }
 
