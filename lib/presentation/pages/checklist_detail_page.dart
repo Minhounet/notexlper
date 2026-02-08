@@ -330,62 +330,52 @@ class _DisplayModeMenuButton extends StatelessWidget {
       itemBuilder: (context) => [
         PopupMenuItem(
           value: 'flat',
-          child: Row(
-            children: [
-              Icon(
-                Icons.list,
-                color: displayMode == ChecklistDisplayMode.flat
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              const Text('Flat view'),
-              if (displayMode == ChecklistDisplayMode.flat) ...[
-                const Spacer(),
-                Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 18),
-              ],
-            ],
+          child: _buildMenuItem(
+            context,
+            icon: Icons.list,
+            label: 'Flat view',
+            isSelected: displayMode == ChecklistDisplayMode.flat,
           ),
         ),
         PopupMenuItem(
           value: 'grouped',
-          child: Row(
-            children: [
-              Icon(
-                Icons.category,
-                color: displayMode == ChecklistDisplayMode.groupedByCategory
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              const Text('Group by category'),
-              if (displayMode == ChecklistDisplayMode.groupedByCategory) ...[
-                const Spacer(),
-                Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 18),
-              ],
-            ],
+          child: _buildMenuItem(
+            context,
+            icon: Icons.category,
+            label: 'Group by category',
+            isSelected: displayMode == ChecklistDisplayMode.groupedByCategory,
           ),
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'checked_bottom',
-          child: Row(
-            children: [
-              Icon(
-                Icons.vertical_align_bottom,
-                color: checkedAtBottom
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              const Text('Checked at bottom'),
-              if (checkedAtBottom) ...[
-                const Spacer(),
-                Icon(Icons.check, color: Theme.of(context).colorScheme.primary, size: 18),
-              ],
-            ],
+          child: _buildMenuItem(
+            context,
+            icon: Icons.vertical_align_bottom,
+            label: 'Checked at bottom',
+            isSelected: checkedAtBottom,
           ),
         ),
+      ],
+    );
+  }
+
+  static Widget _buildMenuItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+  }) {
+    final color = isSelected ? Theme.of(context).colorScheme.primary : null;
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(label, overflow: TextOverflow.ellipsis),
+        ),
+        if (isSelected)
+          Icon(Icons.check, color: color, size: 18),
       ],
     );
   }
