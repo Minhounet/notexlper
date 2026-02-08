@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notexlper/data/datasources/local/fake_category_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_checklist_datasource.dart';
 import 'package:notexlper/domain/entities/checklist_item.dart';
 import 'package:notexlper/domain/entities/checklist_note.dart';
 import 'package:notexlper/presentation/pages/checklist_detail_page.dart';
+import 'package:notexlper/presentation/providers/category_providers.dart';
 import 'package:notexlper/presentation/providers/checklist_providers.dart';
 
 void main() {
   late FakeChecklistDataSource dataSource;
+  late FakeCategoryDataSource categoryDataSource;
   final now = DateTime(2024, 6, 1);
 
   setUp(() {
     dataSource = FakeChecklistDataSource(delay: Duration.zero);
     dataSource.clear();
+    categoryDataSource = FakeCategoryDataSource(delay: Duration.zero);
+    categoryDataSource.clear();
   });
 
   Widget createDetailPage(ChecklistNote note) {
     return ProviderScope(
       overrides: [
         dataSourceProvider.overrideWithValue(dataSource),
+        categoryDataSourceProvider.overrideWithValue(categoryDataSource),
       ],
       child: MaterialApp(home: ChecklistDetailPage(note: note)),
     );
@@ -29,6 +35,7 @@ void main() {
     return ProviderScope(
       overrides: [
         dataSourceProvider.overrideWithValue(dataSource),
+        categoryDataSourceProvider.overrideWithValue(categoryDataSource),
       ],
       child: MaterialApp(
         home: Builder(

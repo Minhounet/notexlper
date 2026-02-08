@@ -8,6 +8,7 @@ class ChecklistItem extends Equatable {
   final DateTime? dueDate;
   final DateTime? reminderDateTime;
   final int order;
+  final String? categoryId;
 
   const ChecklistItem({
     required this.id,
@@ -16,6 +17,7 @@ class ChecklistItem extends Equatable {
     this.dueDate,
     this.reminderDateTime,
     this.order = 0,
+    this.categoryId,
   });
 
   ChecklistItem copyWith({
@@ -25,6 +27,8 @@ class ChecklistItem extends Equatable {
     DateTime? dueDate,
     DateTime? reminderDateTime,
     int? order,
+    String? categoryId,
+    bool clearCategoryId = false,
   }) {
     return ChecklistItem(
       id: id ?? this.id,
@@ -33,6 +37,7 @@ class ChecklistItem extends Equatable {
       dueDate: dueDate ?? this.dueDate,
       reminderDateTime: reminderDateTime ?? this.reminderDateTime,
       order: order ?? this.order,
+      categoryId: clearCategoryId ? null : (categoryId ?? this.categoryId),
     );
   }
 
@@ -44,5 +49,6 @@ class ChecklistItem extends Equatable {
         dueDate,
         reminderDateTime,
         order,
+        categoryId,
       ];
 }
