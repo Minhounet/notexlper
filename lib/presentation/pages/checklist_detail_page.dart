@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,6 +27,12 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
   ChecklistDisplayMode _displayMode = ChecklistDisplayMode.flat;
   bool _checkedAtBottom = false;
 
+  // Animation tracking
+  String? _justToggledItemId;
+  String? _pendingMoveItemId;
+  Timer? _moveTimer;
+  Timer? _emphasisTimer;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +42,8 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
 
   @override
   void dispose() {
+    _moveTimer?.cancel();
+    _emphasisTimer?.cancel();
     _titleController.dispose();
     for (final controller in _itemControllers.values) {
       controller.dispose();
@@ -61,16 +71,47 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
   }
 
   void _toggleItem(String itemId) {
+    final item = _note.items.firstWhere((i) => i.id == itemId);
+    final isBeingChecked = !item.isChecked;
+
+    _moveTimer?.cancel();
+    _emphasisTimer?.cancel();
+
     setState(() {
-      final updatedItems = _note.items.map((item) {
-        if (item.id == itemId) {
-          return item.copyWith(isChecked: !item.isChecked);
+      _justToggledItemId = itemId;
+      if (_checkedAtBottom && isBeingChecked) {
+        _pendingMoveItemId = itemId;
+      }
+      final updatedItems = _note.items.map((i) {
+        if (i.id == itemId) {
+          return i.copyWith(isChecked: !i.isChecked);
         }
-        return item;
+        return i;
       }).toList();
       _note = _note.copyWith(items: updatedItems, updatedAt: DateTime.now());
     });
     _save();
+
+    if (_checkedAtBottom && isBeingChecked) {
+      // Delay the move to bottom so user sees the check in place
+      _moveTimer = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _pendingMoveItemId = null;
+            _justToggledItemId = null;
+          });
+        }
+      });
+    } else {
+      // Clear emphasis after animation finishes
+      _emphasisTimer = Timer(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          setState(() {
+            _justToggledItemId = null;
+          });
+        }
+      });
+    }
   }
 
   void _updateItemText(String itemId, String text) {
@@ -128,8 +169,13 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
 
   List<ChecklistItem> _applySorting(List<ChecklistItem> items) {
     if (!_checkedAtBottom) return items;
-    final unchecked = items.where((i) => !i.isChecked).toList();
-    final checked = items.where((i) => i.isChecked).toList();
+    // Keep pending-move item in place (not yet moved to bottom)
+    final unchecked = items
+        .where((i) => !i.isChecked || i.id == _pendingMoveItemId)
+        .toList();
+    final checked = items
+        .where((i) => i.isChecked && i.id != _pendingMoveItemId)
+        .toList();
     return [...unchecked, ...checked];
   }
 
@@ -222,6 +268,7 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
       controller: _getItemController(item),
       categories: categories,
       showCategory: showCategory,
+      justToggled: _justToggledItemId == item.id,
       onToggle: () => _toggleItem(item.id),
       onTextChanged: (text) => _updateItemText(item.id, text),
       onDelete: () => _removeItem(item.id),
@@ -234,13 +281,14 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
   Widget _buildFlatList(List<ChecklistItem> items, List<Category> categories) {
     final displayItems = _checkedAtBottom ? _applySorting(items) : items;
     final hasUnchecked = items.any((i) => !i.isChecked);
-    final hasChecked = items.any((i) => i.isChecked);
+    final hasChecked = items.any((i) => i.isChecked && i.id != _pendingMoveItemId);
     final showSeparator = _checkedAtBottom && hasUnchecked && hasChecked;
 
     final widgets = <Widget>[];
     var separatorAdded = false;
     for (final item in displayItems) {
-      if (showSeparator && !separatorAdded && item.isChecked) {
+      if (showSeparator && !separatorAdded &&
+          item.isChecked && item.id != _pendingMoveItemId) {
         widgets.add(const _CheckedSeparator());
         separatorAdded = true;
       }
@@ -257,9 +305,13 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     final categoryMap = {for (final c in categories) c.id: c};
 
     if (_checkedAtBottom) {
-      // Separate unchecked and checked items
-      final unchecked = sortedItems.where((i) => !i.isChecked).toList();
-      final checked = sortedItems.where((i) => i.isChecked).toList();
+      // Separate unchecked and checked items, keeping pending-move in unchecked
+      final unchecked = sortedItems
+          .where((i) => !i.isChecked || i.id == _pendingMoveItemId)
+          .toList();
+      final checked = sortedItems
+          .where((i) => i.isChecked && i.id != _pendingMoveItemId)
+          .toList();
 
       // Group only unchecked items by category
       final groups = _groupByCategory(unchecked);
@@ -273,6 +325,7 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
           categoryId: categoryId,
           items: groups[categoryId]!,
           allCategories: categories,
+          justToggledItemId: _justToggledItemId,
           getItemController: _getItemController,
           onToggle: _toggleItem,
           onTextChanged: _updateItemText,
@@ -307,6 +360,7 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
         categoryId: categoryId,
         items: groups[categoryId]!,
         allCategories: categories,
+        justToggledItemId: _justToggledItemId,
         getItemController: _getItemController,
         onToggle: _toggleItem,
         onTextChanged: _updateItemText,
@@ -448,6 +502,7 @@ class _CategoryGroup extends StatelessWidget {
   final String? categoryId;
   final List<ChecklistItem> items;
   final List<Category> allCategories;
+  final String? justToggledItemId;
   final TextEditingController Function(ChecklistItem) getItemController;
   final void Function(String) onToggle;
   final void Function(String, String) onTextChanged;
@@ -460,6 +515,7 @@ class _CategoryGroup extends StatelessWidget {
     required this.categoryId,
     required this.items,
     required this.allCategories,
+    required this.justToggledItemId,
     required this.getItemController,
     required this.onToggle,
     required this.onTextChanged,
@@ -511,6 +567,7 @@ class _CategoryGroup extends StatelessWidget {
               controller: getItemController(item),
               categories: allCategories,
               showCategory: false,
+              justToggled: justToggledItemId == item.id,
               onToggle: () => onToggle(item.id),
               onTextChanged: (text) => onTextChanged(item.id, text),
               onDelete: () => onDelete(item.id),
@@ -549,11 +606,12 @@ class _CheckedSeparator extends StatelessWidget {
   }
 }
 
-class _ChecklistItemTile extends StatelessWidget {
+class _ChecklistItemTile extends StatefulWidget {
   final ChecklistItem item;
   final TextEditingController controller;
   final List<Category> categories;
   final bool showCategory;
+  final bool justToggled;
   final VoidCallback onToggle;
   final ValueChanged<String> onTextChanged;
   final VoidCallback onDelete;
@@ -566,6 +624,7 @@ class _ChecklistItemTile extends StatelessWidget {
     required this.controller,
     required this.categories,
     this.showCategory = true,
+    this.justToggled = false,
     required this.onToggle,
     required this.onTextChanged,
     required this.onDelete,
@@ -574,57 +633,118 @@ class _ChecklistItemTile extends StatelessWidget {
   });
 
   @override
+  State<_ChecklistItemTile> createState() => _ChecklistItemTileState();
+}
+
+class _ChecklistItemTileState extends State<_ChecklistItemTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _highlightController;
+  late Animation<double> _highlightAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _highlightController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _highlightAnimation = CurvedAnimation(
+      parent: _highlightController,
+      curve: Curves.easeOut,
+    );
+    if (widget.justToggled) {
+      _highlightController.forward(from: 0);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ChecklistItemTile old) {
+    super.didUpdateWidget(old);
+    if (widget.justToggled && !old.justToggled) {
+      _highlightController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _highlightController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final category = item.categoryId != null
-        ? categories.where((c) => c.id == item.categoryId).firstOrNull
+    final category = widget.item.categoryId != null
+        ? widget.categories
+            .where((c) => c.id == widget.item.categoryId)
+            .firstOrNull
         : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Checkbox(
-              value: item.isChecked,
-              onChanged: (_) => onToggle(),
-            ),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: 'List item',
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+    final highlightColor = widget.item.isChecked
+        ? Colors.green.withOpacity(0.25)
+        : Colors.blue.withOpacity(0.15);
+
+    return AnimatedBuilder(
+      animation: _highlightAnimation,
+      builder: (context, child) {
+        final opacity = (1.0 - _highlightAnimation.value);
+        return Container(
+          decoration: BoxDecoration(
+            color: widget.justToggled
+                ? highlightColor.withOpacity(highlightColor.opacity * opacity)
+                : null,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: child,
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Checkbox(
+                value: widget.item.isChecked,
+                onChanged: (_) => widget.onToggle(),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: widget.controller,
+                  decoration: const InputDecoration(
+                    hintText: 'List item',
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    decoration:
+                        widget.item.isChecked ? TextDecoration.lineThrough : null,
+                    color: widget.item.isChecked
+                        ? theme.colorScheme.onSurfaceVariant
+                        : null,
+                  ),
+                  onChanged: widget.onTextChanged,
                 ),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  decoration: item.isChecked ? TextDecoration.lineThrough : null,
-                  color: item.isChecked
-                      ? theme.colorScheme.onSurfaceVariant
-                      : null,
-                ),
-                onChanged: onTextChanged,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: widget.onDelete,
+                tooltip: 'Remove item',
+              ),
+            ],
+          ),
+          if (widget.showCategory)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, bottom: 4),
+              child: _CategorySelector(
+                categories: widget.categories,
+                selectedCategory: category,
+                onCategoryChanged: widget.onCategoryChanged,
+                onCreateCategory: widget.onCreateCategory,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: onDelete,
-              tooltip: 'Remove item',
-            ),
-          ],
-        ),
-        if (showCategory)
-          Padding(
-            padding: const EdgeInsets.only(left: 48, bottom: 4),
-            child: _CategorySelector(
-              categories: categories,
-              selectedCategory: category,
-              onCategoryChanged: onCategoryChanged,
-              onCreateCategory: onCreateCategory,
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

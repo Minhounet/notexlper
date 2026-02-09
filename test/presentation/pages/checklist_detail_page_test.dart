@@ -382,6 +382,51 @@ void main() {
       expect(checkboxes[2].value, true); // Checked first (moved to bottom)
     });
 
+    testWidgets(
+        'should delay move to bottom when checking an item in checked-at-bottom mode',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'First', isChecked: false, order: 0),
+          ChecklistItem(
+              id: 'i2', text: 'Second', isChecked: false, order: 1),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Enable checked at bottom
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Checked at bottom'));
+      await tester.pumpAndSettle();
+
+      // Check the first item
+      await tester.tap(find.byType(Checkbox).first);
+      await tester.pump(); // Just one frame
+
+      // Item should be checked but still in place (pending move)
+      var checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, true); // Just checked, still first
+      expect(checkboxes[1].value, false);
+
+      // After the delay, it should move to the bottom
+      await tester.pumpAndSettle();
+
+      checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, false); // Second is now first
+      expect(checkboxes[1].value, true); // First moved to bottom
+    });
+
     testWidgets('should show separator between unchecked and checked items',
         (tester) async {
       final note = ChecklistNote(
