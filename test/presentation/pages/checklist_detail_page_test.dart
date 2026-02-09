@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notexlper/data/datasources/local/fake_category_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_checklist_datasource.dart';
+import 'package:notexlper/domain/entities/category.dart';
 import 'package:notexlper/domain/entities/checklist_item.dart';
 import 'package:notexlper/domain/entities/checklist_note.dart';
 import 'package:notexlper/presentation/pages/checklist_detail_page.dart';
@@ -290,6 +291,326 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('1/2'), findsOneWidget);
+    });
+  });
+
+  group('Display mode menu', () {
+    testWidgets('should show display mode menu button in app bar',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.view_list), findsOneWidget);
+    });
+
+    testWidgets('should show menu options when display mode button is tapped',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Flat view'), findsOneWidget);
+      expect(find.text('Group by category'), findsOneWidget);
+      expect(find.text('Checked at bottom'), findsOneWidget);
+    });
+  });
+
+  group('Checked at bottom mode', () {
+    testWidgets('should move checked items to bottom in flat mode',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'Checked first', isChecked: true, order: 0),
+          ChecklistItem(
+              id: 'i2', text: 'Unchecked second', isChecked: false, order: 1),
+          ChecklistItem(
+              id: 'i3', text: 'Unchecked third', isChecked: false, order: 2),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Initially in flat mode, items in order
+      var checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, true); // Checked first
+      expect(checkboxes[1].value, false); // Unchecked second
+      expect(checkboxes[2].value, false); // Unchecked third
+
+      // Open display mode menu and tap "Checked at bottom"
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Checked at bottom'));
+      await tester.pumpAndSettle();
+
+      // Now checked items should be at the bottom
+      checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, false); // Unchecked second
+      expect(checkboxes[1].value, false); // Unchecked third
+      expect(checkboxes[2].value, true); // Checked first (moved to bottom)
+    });
+
+    testWidgets(
+        'should delay move to bottom when checking an item in checked-at-bottom mode',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'First', isChecked: false, order: 0),
+          ChecklistItem(
+              id: 'i2', text: 'Second', isChecked: false, order: 1),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Enable checked at bottom
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Checked at bottom'));
+      await tester.pumpAndSettle();
+
+      // Check the first item
+      await tester.tap(find.byType(Checkbox).first);
+      await tester.pump(); // Just one frame
+
+      // Item should be checked but still in place (pending move)
+      var checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, true); // Just checked, still first
+      expect(checkboxes[1].value, false);
+
+      // After the delay, it should move to the bottom
+      await tester.pumpAndSettle();
+
+      checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, false); // Second is now first
+      expect(checkboxes[1].value, true); // First moved to bottom
+    });
+
+    testWidgets('should show separator between unchecked and checked items',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'Done', isChecked: true, order: 0),
+          ChecklistItem(
+              id: 'i2', text: 'Todo', isChecked: false, order: 1),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // No separator initially
+      expect(find.text('Checked'), findsNothing);
+
+      // Enable checked at bottom
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Checked at bottom'));
+      await tester.pumpAndSettle();
+
+      // Separator should appear between unchecked and checked sections
+      expect(find.text('Checked'), findsOneWidget);
+    });
+  });
+
+  group('Group by category mode', () {
+    testWidgets('should show category headers when grouped by category',
+        (tester) async {
+      // Create categories
+      await categoryDataSource.createCategory(
+        const Category(id: 'cat-1', name: 'Work', colorValue: 0xFF2196F3),
+      );
+      await categoryDataSource.createCategory(
+        const Category(id: 'cat-2', name: 'Shopping', colorValue: 0xFF4CAF50),
+      );
+
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'Work task', order: 0, categoryId: 'cat-1'),
+          ChecklistItem(
+              id: 'i2', text: 'Buy milk', order: 1, categoryId: 'cat-2'),
+          ChecklistItem(id: 'i3', text: 'No category', order: 2),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Switch to grouped mode
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Group by category'));
+      await tester.pumpAndSettle();
+
+      // Should show category headers
+      expect(find.text('Work'), findsWidgets);
+      expect(find.text('Shopping'), findsWidgets);
+      expect(find.text('Uncategorized'), findsOneWidget);
+
+      // All items should still be visible
+      expect(find.text('Work task'), findsOneWidget);
+      expect(find.text('Buy milk'), findsOneWidget);
+      expect(find.text('No category'), findsOneWidget);
+    });
+
+    testWidgets(
+        'should show item counts per category group',
+        (tester) async {
+      await categoryDataSource.createCategory(
+        const Category(id: 'cat-1', name: 'Work', colorValue: 0xFF2196F3),
+      );
+
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1', text: 'Task 1', order: 0, categoryId: 'cat-1'),
+          ChecklistItem(
+              id: 'i2', text: 'Task 2', order: 1, categoryId: 'cat-1'),
+          ChecklistItem(id: 'i3', text: 'Other', order: 2),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Switch to grouped mode
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Group by category'));
+      await tester.pumpAndSettle();
+
+      // Should show counts
+      expect(find.text('(2)'), findsOneWidget); // Work group
+      expect(find.text('(1)'), findsOneWidget); // Uncategorized group
+    });
+
+    testWidgets(
+        'should move all checked items to full bottom when both modes are active',
+        (tester) async {
+      await categoryDataSource.createCategory(
+        const Category(id: 'cat-1', name: 'Work', colorValue: 0xFF2196F3),
+      );
+      await categoryDataSource.createCategory(
+        const Category(id: 'cat-2', name: 'Shopping', colorValue: 0xFF4CAF50),
+      );
+
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(
+              id: 'i1',
+              text: 'Done work',
+              isChecked: true,
+              order: 0,
+              categoryId: 'cat-1'),
+          ChecklistItem(
+              id: 'i2',
+              text: 'Pending work',
+              isChecked: false,
+              order: 1,
+              categoryId: 'cat-1'),
+          ChecklistItem(
+              id: 'i3',
+              text: 'Done shopping',
+              isChecked: true,
+              order: 2,
+              categoryId: 'cat-2'),
+          ChecklistItem(
+              id: 'i4',
+              text: 'Pending shopping',
+              isChecked: false,
+              order: 3,
+              categoryId: 'cat-2'),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Enable group by category
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Group by category'));
+      await tester.pumpAndSettle();
+
+      // Enable checked at bottom
+      await tester.tap(find.byIcon(Icons.view_list));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Checked at bottom'));
+      await tester.pumpAndSettle();
+
+      // Unchecked items from groups first, then all checked at the bottom
+      final checkboxes =
+          tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(checkboxes[0].value, false); // Pending work (Work group)
+      expect(checkboxes[1].value, false); // Pending shopping (Shopping group)
+      expect(checkboxes[2].value, true); // Done work (checked section)
+      expect(checkboxes[3].value, true); // Done shopping (checked section)
+
+      // Separator should be visible
+      expect(find.text('Checked'), findsOneWidget);
     });
   });
 }
