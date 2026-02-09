@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'presentation/pages/home_page.dart';
+import 'presentation/pages/login_page.dart';
 import 'presentation/pages/splash_page.dart';
 
 void main() {
@@ -38,6 +39,8 @@ class NotexlperApp extends StatelessWidget {
   }
 }
 
+enum _AppPhase { splash, login, home }
+
 class SplashWrapper extends StatefulWidget {
   const SplashWrapper({super.key});
 
@@ -46,19 +49,21 @@ class SplashWrapper extends StatefulWidget {
 }
 
 class _SplashWrapperState extends State<SplashWrapper> {
-  bool _initialized = false;
-
-  void _onInitialized() {
-    setState(() {
-      _initialized = true;
-    });
-  }
+  _AppPhase _phase = _AppPhase.splash;
 
   @override
   Widget build(BuildContext context) {
-    if (_initialized) {
-      return const HomePage();
+    switch (_phase) {
+      case _AppPhase.splash:
+        return SplashPage(
+          onInitialized: () => setState(() => _phase = _AppPhase.login),
+        );
+      case _AppPhase.login:
+        return LoginPage(
+          onLoggedIn: () => setState(() => _phase = _AppPhase.home),
+        );
+      case _AppPhase.home:
+        return const HomePage();
     }
-    return SplashPage(onInitialized: _onInitialized);
   }
 }

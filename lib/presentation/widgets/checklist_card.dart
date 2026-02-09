@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/actor.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/checklist_note.dart';
 import '../pages/checklist_detail_page.dart';
 import '../providers/checklist_providers.dart';
+import 'actor_avatar_row.dart';
 
 /// A card shown on the home page that previews a checklist note.
 ///
 /// Displays the title, up to 5 item previews (with checkbox icons
-/// and optional category badges), a progress counter, and a delete
-/// button.
+/// and optional category badges), assigned actors, a progress counter,
+/// and a delete button.
 class ChecklistCard extends ConsumerWidget {
   final ChecklistNote note;
   final List<Category> categories;
+  final List<Actor> actors;
 
   const ChecklistCard({
     super.key,
     required this.note,
     required this.categories,
+    this.actors = const [],
   });
 
   @override
@@ -26,6 +30,8 @@ class ChecklistCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final previewItems = note.sortedItems.take(5).toList();
     final hasMore = note.items.length > 5;
+    final assignedActors =
+        actors.where((a) => note.assigneeIds.contains(a.id)).toList();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -124,12 +130,17 @@ class ChecklistCard extends ConsumerWidget {
                 ),
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${note.completedCount}/${note.totalCount} done',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (assignedActors.isNotEmpty) ...[
+                    ActorAvatarRow(actors: assignedActors, size: 20),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      '${note.completedCount}/${note.totalCount} done',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   IconButton(
