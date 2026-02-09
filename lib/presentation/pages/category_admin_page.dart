@@ -3,22 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/category.dart';
 import '../providers/category_providers.dart';
-
-/// Available colors for category selection.
-const List<Color> categoryColors = [
-  Colors.red,
-  Colors.pink,
-  Colors.purple,
-  Colors.deepPurple,
-  Colors.indigo,
-  Colors.blue,
-  Colors.teal,
-  Colors.green,
-  Colors.lime,
-  Colors.orange,
-  Colors.brown,
-  Colors.grey,
-];
+import '../widgets/category_form_dialog.dart';
+import '../widgets/category_tile.dart';
 
 class CategoryAdminPage extends ConsumerWidget {
   const CategoryAdminPage({super.key});
@@ -84,7 +70,7 @@ class CategoryAdminPage extends ConsumerWidget {
             itemCount: categories.length,
             itemBuilder: (context, index) {
               final category = categories[index];
-              return _CategoryTile(category: category);
+              return CategoryTile(category: category);
             },
           );
         },
@@ -99,190 +85,10 @@ class CategoryAdminPage extends ConsumerWidget {
   Future<void> _showCategoryDialog(BuildContext context, WidgetRef ref) async {
     final result = await showDialog<Category>(
       context: context,
-      builder: (context) => const _CategoryFormDialog(),
+      builder: (context) => const CategoryFormDialog(),
     );
     if (result != null) {
       await ref.read(categoryListProvider.notifier).createCategory(result);
     }
-  }
-}
-
-class _CategoryTile extends ConsumerWidget {
-  final Category category;
-
-  const _CategoryTile({required this.category});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final color = Color(category.colorValue);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color,
-          child: const Icon(Icons.label, color: Colors.white),
-        ),
-        title: Text(
-          category.name,
-          style: theme.textTheme.titleMedium,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _editCategory(context, ref),
-              tooltip: 'Edit category',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _confirmDelete(context, ref),
-              tooltip: 'Delete category',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _editCategory(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<Category>(
-      context: context,
-      builder: (context) => _CategoryFormDialog(category: category),
-    );
-    if (result != null) {
-      await ref.read(categoryListProvider.notifier).updateCategory(result);
-    }
-  }
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete category?'),
-        content: Text(
-            'Are you sure you want to delete "${category.name}"? Items using this category will be unassigned.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ref.read(categoryListProvider.notifier).deleteCategory(category.id);
-    }
-  }
-}
-
-class _CategoryFormDialog extends StatefulWidget {
-  final Category? category;
-
-  const _CategoryFormDialog({this.category});
-
-  @override
-  State<_CategoryFormDialog> createState() => _CategoryFormDialogState();
-}
-
-class _CategoryFormDialogState extends State<_CategoryFormDialog> {
-  late TextEditingController _nameController;
-  late Color _selectedColor;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.category?.name ?? '');
-    _selectedColor = widget.category != null
-        ? Color(widget.category!.colorValue)
-        : categoryColors.first;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEditing = widget.category != null;
-
-    return AlertDialog(
-      title: Text(isEditing ? 'Edit Category' : 'New Category'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _nameController,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Category name',
-              hintText: 'Enter category name',
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Color'),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categoryColors.map((color) {
-              final isSelected = _selectedColor.value == color.value;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedColor = color),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: isSelected
-                        ? Border.all(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            width: 3,
-                          )
-                        : null,
-                  ),
-                  child: isSelected
-                      ? const Icon(Icons.check, color: Colors.white, size: 20)
-                      : null,
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final name = _nameController.text.trim();
-            if (name.isEmpty) return;
-
-            final category = Category(
-              id: widget.category?.id ??
-                  'cat-${DateTime.now().millisecondsSinceEpoch}',
-              name: name,
-              colorValue: _selectedColor.value,
-            );
-            Navigator.pop(context, category);
-          },
-          child: Text(isEditing ? 'Save' : 'Create'),
-        ),
-      ],
-    );
   }
 }
