@@ -34,9 +34,8 @@ void main() {
 
     testWidgets('should show Set Reminder title for new reminder',
         (tester) async {
-      Reminder? savedReminder;
       await tester.pumpWidget(createSheet(
-        onSave: (r) => savedReminder = r,
+        onSave: (_) {},
       ));
 
       await tester.tap(find.text('Open'));
