@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/actor.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/checklist_item.dart';
 import '../../domain/entities/checklist_note.dart';
 import '../models/display_mode.dart';
+import '../providers/actor_providers.dart';
 import '../providers/category_providers.dart';
 import '../providers/checklist_providers.dart';
+import '../widgets/actor_avatar_row.dart';
+import '../widgets/actor_picker_sheet.dart';
 import '../widgets/category_form_dialog.dart';
 import '../widgets/category_group.dart';
 import '../widgets/checked_separator.dart';
@@ -169,6 +173,38 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     _save();
   }
 
+  void _toggleAssignee(Actor actor) {
+    setState(() {
+      final currentIds = List<String>.from(_note.assigneeIds);
+      if (currentIds.contains(actor.id)) {
+        currentIds.remove(actor.id);
+      } else {
+        currentIds.add(actor.id);
+      }
+      _note = _note.copyWith(assigneeIds: currentIds, updatedAt: DateTime.now());
+    });
+    _save();
+  }
+
+  void _showAssigneePicker(List<Actor> allActors) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => ActorPickerSheet(
+        actors: allActors,
+        assignedIds: _note.assigneeIds,
+        creatorId: _note.creatorId,
+        onToggleActor: (actor) {
+          _toggleAssignee(actor);
+          Navigator.pop(context);
+          // Reopen immediately to reflect updated state
+          Future.microtask(() {
+            if (mounted) _showAssigneePicker(allActors);
+          });
+        },
+      ),
+    );
+  }
+
   List<ChecklistItem> _applySorting(List<ChecklistItem> items) {
     if (!_checkedAtBottom) return items;
     final unchecked = items
@@ -185,6 +221,11 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     final theme = Theme.of(context);
     final sortedItems = _note.sortedItems;
     final categoriesAsync = ref.watch(categoryListProvider);
+    final actorsAsync = ref.watch(actorListProvider);
+    final allActors = actorsAsync.valueOrNull ?? [];
+    final assignedActors = allActors
+        .where((a) => _note.assigneeIds.contains(a.id))
+        .toList();
 
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
@@ -205,6 +246,11 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
                 '${_note.completedCount}/${_note.totalCount}',
                 style: theme.textTheme.bodyMedium,
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.person_add_outlined),
+              tooltip: 'Manage assignees',
+              onPressed: () => _showAssigneePicker(allActors),
             ),
             DisplayModeMenuButton(
               displayMode: _displayMode,
@@ -234,6 +280,25 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
                 onChanged: _updateTitle,
               ),
             ),
+            if (assignedActors.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: GestureDetector(
+                  onTap: () => _showAssigneePicker(allActors),
+                  child: Row(
+                    children: [
+                      ActorAvatarRow(actors: assignedActors),
+                      const SizedBox(width: 8),
+                      Text(
+                        assignedActors.map((a) => a.name).join(', '),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             const Divider(),
             Expanded(
               child: categoriesAsync.when(

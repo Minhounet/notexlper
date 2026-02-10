@@ -42,6 +42,8 @@ class FakeChecklistDataSource {
       ],
       createdAt: now,
       updatedAt: now,
+      creatorId: 'actor-1',
+      assigneeIds: const ['actor-1'],
     );
     _notes[sampleNote.id] = sampleNote;
   }

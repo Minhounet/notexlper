@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notexlper/data/datasources/local/fake_actor_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_category_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_checklist_datasource.dart';
+import 'package:notexlper/domain/entities/actor.dart';
 import 'package:notexlper/domain/entities/checklist_item.dart';
 import 'package:notexlper/domain/entities/checklist_note.dart';
 import 'package:notexlper/presentation/pages/home_page.dart';
+import 'package:notexlper/presentation/providers/actor_providers.dart';
 import 'package:notexlper/presentation/providers/category_providers.dart';
 import 'package:notexlper/presentation/providers/checklist_providers.dart';
 
 void main() {
   late FakeChecklistDataSource dataSource;
   late FakeCategoryDataSource categoryDataSource;
+  late FakeActorDataSource actorDataSource;
 
   setUp(() {
     dataSource = FakeChecklistDataSource(delay: Duration.zero);
     dataSource.clear();
     categoryDataSource = FakeCategoryDataSource(delay: Duration.zero);
     categoryDataSource.clear();
+    actorDataSource = FakeActorDataSource(delay: Duration.zero);
   });
 
   Widget createHomePage({FakeChecklistDataSource? ds}) {
@@ -25,6 +30,23 @@ void main() {
       overrides: [
         dataSourceProvider.overrideWithValue(ds ?? dataSource),
         categoryDataSourceProvider.overrideWithValue(categoryDataSource),
+        actorDataSourceProvider.overrideWithValue(actorDataSource),
+      ],
+      child: const MaterialApp(home: HomePage()),
+    );
+  }
+
+  Widget createHomePageAsActor(Actor actor, {FakeChecklistDataSource? ds}) {
+    return ProviderScope(
+      overrides: [
+        dataSourceProvider.overrideWithValue(ds ?? dataSource),
+        categoryDataSourceProvider.overrideWithValue(categoryDataSource),
+        actorDataSourceProvider.overrideWithValue(actorDataSource),
+        currentActorProvider.overrideWith((ref) {
+          final notifier = CurrentActorNotifier();
+          notifier.login(actor);
+          return notifier;
+        }),
       ],
       child: const MaterialApp(home: HomePage()),
     );
@@ -182,6 +204,119 @@ void main() {
 
       expect(find.text('First List'), findsOneWidget);
       expect(find.text('Second List'), findsOneWidget);
+    });
+  });
+
+  group('HomePage - actor filtering', () {
+    const actor1 = Actor(id: 'actor-1', name: 'Me', colorValue: 0xFF6200EE);
+    const actor2 = Actor(id: 'actor-2', name: 'Alice', colorValue: 0xFF03DAC6);
+
+    testWidgets('should only show checklists assigned to logged-in actor',
+        (tester) async {
+      final now = DateTime.now();
+      await dataSource.createNote(ChecklistNote(
+        id: 'note-1',
+        title: 'My Checklist',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Task A', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-1',
+        assigneeIds: const ['actor-1'],
+      ));
+      await dataSource.createNote(ChecklistNote(
+        id: 'note-2',
+        title: 'Alice Checklist',
+        items: const [
+          ChecklistItem(id: 'i2', text: 'Task B', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-2',
+        assigneeIds: const ['actor-2'],
+      ));
+
+      await tester.pumpWidget(createHomePageAsActor(actor1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('My Checklist'), findsOneWidget);
+      expect(find.text('Alice Checklist'), findsNothing);
+    });
+
+    testWidgets('should show checklist assigned to multiple actors for each',
+        (tester) async {
+      final now = DateTime.now();
+      await dataSource.createNote(ChecklistNote(
+        id: 'note-1',
+        title: 'Shared Checklist',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Shared task', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-1',
+        assigneeIds: const ['actor-1', 'actor-2'],
+      ));
+
+      await tester.pumpWidget(createHomePageAsActor(actor1));
+      await tester.pumpAndSettle();
+      expect(find.text('Shared Checklist'), findsOneWidget);
+    });
+
+    testWidgets('should show empty state when actor has no assigned checklists',
+        (tester) async {
+      final now = DateTime.now();
+      await dataSource.createNote(ChecklistNote(
+        id: 'note-1',
+        title: 'Only for Me',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Task', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-1',
+        assigneeIds: const ['actor-1'],
+      ));
+
+      await tester.pumpWidget(createHomePageAsActor(actor2));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Only for Me'), findsNothing);
+      expect(find.text('No checklists yet'), findsOneWidget);
+    });
+
+    testWidgets('actor-2 should see only their checklists',
+        (tester) async {
+      final now = DateTime.now();
+      await dataSource.createNote(ChecklistNote(
+        id: 'note-1',
+        title: 'My Checklist',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Task A', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-1',
+        assigneeIds: const ['actor-1'],
+      ));
+      await dataSource.createNote(ChecklistNote(
+        id: 'note-2',
+        title: 'Alice Checklist',
+        items: const [
+          ChecklistItem(id: 'i2', text: 'Task B', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-2',
+        assigneeIds: const ['actor-2'],
+      ));
+
+      await tester.pumpWidget(createHomePageAsActor(actor2));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice Checklist'), findsOneWidget);
+      expect(find.text('My Checklist'), findsNothing);
     });
   });
 }

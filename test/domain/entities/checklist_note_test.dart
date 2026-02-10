@@ -98,5 +98,60 @@ void main() {
 
       expect(note1, note2);
     });
+
+    test('should have default empty assigneeIds and null creatorId', () {
+      final note = createNote();
+
+      expect(note.creatorId, isNull);
+      expect(note.assigneeIds, isEmpty);
+    });
+
+    test('should store creatorId and assigneeIds', () {
+      final note = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        creatorId: 'actor-1',
+        assigneeIds: const ['actor-1', 'actor-2'],
+      );
+
+      expect(note.creatorId, 'actor-1');
+      expect(note.assigneeIds, ['actor-1', 'actor-2']);
+    });
+
+    test('copyWith should update creatorId and assigneeIds', () {
+      final note = createNote();
+      final updated = note.copyWith(
+        creatorId: 'actor-1',
+        assigneeIds: ['actor-1'],
+      );
+
+      expect(updated.creatorId, 'actor-1');
+      expect(updated.assigneeIds, ['actor-1']);
+      expect(updated.id, note.id);
+    });
+
+    test('notes with different assigneeIds should not be equal', () {
+      final note1 = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        assigneeIds: const ['actor-1'],
+      );
+      final note2 = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        assigneeIds: const ['actor-2'],
+      );
+
+      expect(note1, isNot(note2));
+    });
   });
 }

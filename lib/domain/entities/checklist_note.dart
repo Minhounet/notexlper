@@ -10,6 +10,8 @@ class ChecklistNote extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isPinned;
+  final String? creatorId;
+  final List<String> assigneeIds;
 
   const ChecklistNote({
     required this.id,
@@ -18,6 +20,8 @@ class ChecklistNote extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.isPinned = false,
+    this.creatorId,
+    this.assigneeIds = const [],
   });
 
   /// Returns the count of completed items
@@ -40,6 +44,8 @@ class ChecklistNote extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isPinned,
+    String? creatorId,
+    List<String>? assigneeIds,
   }) {
     return ChecklistNote(
       id: id ?? this.id,
@@ -48,6 +54,8 @@ class ChecklistNote extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isPinned: isPinned ?? this.isPinned,
+      creatorId: creatorId ?? this.creatorId,
+      assigneeIds: assigneeIds ?? this.assigneeIds,
     );
   }
 
@@ -59,5 +67,7 @@ class ChecklistNote extends Equatable {
         createdAt,
         updatedAt,
         isPinned,
+        creatorId,
+        assigneeIds,
       ];
 }
