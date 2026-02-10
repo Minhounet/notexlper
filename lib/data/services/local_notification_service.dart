@@ -87,6 +87,8 @@ class LocalNotificationService implements NotificationService {
         scheduledDate,
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: null,
       );
     } else {
@@ -113,6 +115,8 @@ class LocalNotificationService implements NotificationService {
         scheduledDate,
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: matchComponents,
       );
     }
