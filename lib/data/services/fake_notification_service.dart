@@ -30,6 +30,11 @@ class FakeNotificationService implements NotificationService {
   }
 
   @override
+  Future<void> showNow({required String title, required String body}) async {
+    debugPrint('[FakeNotificationService] Showing now: "$title" - $body');
+  }
+
+  @override
   List<ScheduledNotification> get scheduledNotifications =>
       List.unmodifiable(_scheduled);
 }

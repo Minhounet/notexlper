@@ -29,6 +29,12 @@ abstract class NotificationService {
   /// Cancels all notifications for the given note.
   Future<void> cancelReminder(String noteId);
 
+  /// Shows an immediate notification (e.g. to confirm a reminder was set).
+  Future<void> showNow({
+    required String title,
+    required String body,
+  });
+
   /// Returns all currently scheduled notifications (for debugging/testing).
   List<ScheduledNotification> get scheduledNotifications;
 }

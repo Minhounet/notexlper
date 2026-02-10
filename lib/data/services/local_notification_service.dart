@@ -129,6 +129,25 @@ class LocalNotificationService implements NotificationService {
   }
 
   @override
+  Future<void> showNow({required String title, required String body}) async {
+    const androidDetails = AndroidNotificationDetails(
+      'reminders_confirm',
+      'Reminder confirmations',
+      channelDescription: 'Confirmation when a reminder is set',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // Use a fixed high ID so confirmation notifications don't clash with scheduled ones
+    await _plugin.show(0x7FFFFFFE, title, body, details);
+  }
+
+  @override
   Future<void> cancelReminder(String noteId) async {
     _scheduled.removeWhere((n) => n.noteId == noteId);
     final id = _notificationId(noteId);

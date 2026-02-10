@@ -253,6 +253,13 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
       recipientIds: _note.assigneeIds,
       reminder: reminder,
     ));
+
+    // Show an immediate confirmation notification
+    final summary = _formatReminderSummary(reminder);
+    notifService.showNow(
+      title: 'Reminder set: $title',
+      body: summary,
+    );
   }
 
   List<ChecklistItem> _applySorting(List<ChecklistItem> items) {
