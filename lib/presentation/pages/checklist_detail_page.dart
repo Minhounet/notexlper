@@ -2,15 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../domain/entities/actor.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/checklist_item.dart';
 import '../../domain/entities/checklist_note.dart';
+import '../../domain/entities/reminder.dart';
+import '../../domain/services/notification_service.dart';
 import '../models/display_mode.dart';
 import '../providers/actor_providers.dart';
 import '../providers/category_providers.dart';
 import '../providers/checklist_providers.dart';
+import '../providers/notification_providers.dart';
 import '../widgets/actor_avatar_row.dart';
 import '../widgets/actor_picker_sheet.dart';
 import '../widgets/category_form_dialog.dart';
@@ -18,6 +22,7 @@ import '../widgets/category_group.dart';
 import '../widgets/checked_separator.dart';
 import '../widgets/checklist_item_tile.dart';
 import '../widgets/display_mode_menu_button.dart';
+import '../widgets/reminder_picker_sheet.dart';
 
 class ChecklistDetailPage extends ConsumerStatefulWidget {
   final ChecklistNote note;
@@ -205,6 +210,51 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     );
   }
 
+  void _showReminderPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ReminderPickerSheet(
+        existingReminder: _note.reminder,
+        onSave: _setReminder,
+        onRemove: _note.reminder != null ? _removeReminder : null,
+      ),
+    );
+  }
+
+  void _setReminder(Reminder reminder) {
+    setState(() {
+      _note = _note.copyWith(reminder: reminder, updatedAt: DateTime.now());
+    });
+    _save();
+    _scheduleNotification(reminder);
+  }
+
+  void _removeReminder() {
+    final notifService = ref.read(notificationServiceProvider);
+    notifService.cancelReminder(_note.id);
+    setState(() {
+      _note = _note.copyWith(clearReminder: true, updatedAt: DateTime.now());
+    });
+    _save();
+  }
+
+  void _scheduleNotification(Reminder reminder) {
+    final notifService = ref.read(notificationServiceProvider);
+    final title = _note.title.isEmpty ? 'Checklist Reminder' : _note.title;
+    final unchecked = _note.items.where((i) => !i.isChecked).length;
+    final body = '$unchecked item(s) remaining'
+        '${reminder.frequency != ReminderFrequency.once ? ' (${reminder.frequency.label})' : ''}';
+
+    notifService.scheduleReminder(ScheduledNotification(
+      noteId: _note.id,
+      title: title,
+      body: body,
+      recipientIds: _note.assigneeIds,
+      reminder: reminder,
+    ));
+  }
+
   List<ChecklistItem> _applySorting(List<ChecklistItem> items) {
     if (!_checkedAtBottom) return items;
     final unchecked = items
@@ -246,6 +296,18 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
                 '${_note.completedCount}/${_note.totalCount}',
                 style: theme.textTheme.bodyMedium,
               ),
+            ),
+            IconButton(
+              icon: Icon(
+                _note.hasActiveReminder
+                    ? Icons.notifications_active
+                    : Icons.notifications_none,
+                color: _note.hasActiveReminder
+                    ? theme.colorScheme.primary
+                    : null,
+              ),
+              tooltip: _note.hasActiveReminder ? 'Edit reminder' : 'Set reminder',
+              onPressed: _showReminderPicker,
             ),
             IconButton(
               icon: const Icon(Icons.person_add_outlined),
@@ -293,6 +355,29 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
                         assignedActors.map((a) => a.name).join(', '),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (_note.hasActiveReminder)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: GestureDetector(
+                  onTap: _showReminderPicker,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_active,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatReminderSummary(_note.reminder!),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ],
@@ -464,6 +549,17 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
       orderedKeys.add(null);
     }
     return orderedKeys;
+  }
+
+  String _formatReminderSummary(Reminder reminder) {
+    final dateFormat = DateFormat.yMMMd();
+    final timeFormat = DateFormat.jm();
+    final dateStr = dateFormat.format(reminder.dateTime);
+    final timeStr = timeFormat.format(reminder.dateTime);
+    final freq = reminder.frequency == ReminderFrequency.once
+        ? ''
+        : ' (${reminder.frequency.label})';
+    return '$dateStr at $timeStr$freq';
   }
 
   Future<void> _createCategoryInline(String itemId) async {

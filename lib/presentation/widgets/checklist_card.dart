@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../domain/entities/actor.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/entities/checklist_note.dart';
+import '../../domain/entities/reminder.dart';
 import '../pages/checklist_detail_page.dart';
 import '../providers/checklist_providers.dart';
 import 'actor_avatar_row.dart';
@@ -128,6 +130,27 @@ class ChecklistCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+              if (note.hasActiveReminder)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_active,
+                        size: 14,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatReminder(note.reminder!),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -157,6 +180,17 @@ class ChecklistCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  static String _formatReminder(Reminder reminder) {
+    final dateFormat = DateFormat.MMMd();
+    final timeFormat = DateFormat.jm();
+    final dateStr = dateFormat.format(reminder.dateTime);
+    final timeStr = timeFormat.format(reminder.dateTime);
+    final freq = reminder.frequency == ReminderFrequency.once
+        ? ''
+        : ' \u00b7 ${reminder.frequency.label}';
+    return '$dateStr, $timeStr$freq';
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
