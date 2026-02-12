@@ -4,18 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notexlper/data/datasources/local/fake_actor_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_category_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_checklist_datasource.dart';
+import 'package:notexlper/data/services/fake_notification_service.dart';
 import 'package:notexlper/domain/entities/category.dart';
 import 'package:notexlper/domain/entities/checklist_item.dart';
 import 'package:notexlper/domain/entities/checklist_note.dart';
+import 'package:notexlper/domain/entities/reminder.dart';
 import 'package:notexlper/presentation/pages/checklist_detail_page.dart';
 import 'package:notexlper/presentation/providers/actor_providers.dart';
 import 'package:notexlper/presentation/providers/category_providers.dart';
 import 'package:notexlper/presentation/providers/checklist_providers.dart';
+import 'package:notexlper/presentation/providers/notification_providers.dart';
 
 void main() {
   late FakeChecklistDataSource dataSource;
   late FakeCategoryDataSource categoryDataSource;
   late FakeActorDataSource actorDataSource;
+  late FakeNotificationService notificationService;
   final now = DateTime(2024, 6, 1);
 
   setUp(() {
@@ -24,6 +28,7 @@ void main() {
     categoryDataSource = FakeCategoryDataSource(delay: Duration.zero);
     categoryDataSource.clear();
     actorDataSource = FakeActorDataSource(delay: Duration.zero);
+    notificationService = FakeNotificationService();
   });
 
   Widget createDetailPage(ChecklistNote note) {
@@ -32,6 +37,7 @@ void main() {
         dataSourceProvider.overrideWithValue(dataSource),
         categoryDataSourceProvider.overrideWithValue(categoryDataSource),
         actorDataSourceProvider.overrideWithValue(actorDataSource),
+        notificationServiceProvider.overrideWithValue(notificationService),
       ],
       child: MaterialApp(home: ChecklistDetailPage(note: note)),
     );
@@ -43,6 +49,7 @@ void main() {
         dataSourceProvider.overrideWithValue(dataSource),
         categoryDataSourceProvider.overrideWithValue(categoryDataSource),
         actorDataSourceProvider.overrideWithValue(actorDataSource),
+        notificationServiceProvider.overrideWithValue(notificationService),
       ],
       child: MaterialApp(
         home: Builder(
@@ -617,6 +624,136 @@ void main() {
 
       // Separator should be visible
       expect(find.text('Checked'), findsOneWidget);
+    });
+  });
+
+  group('Reminder', () {
+    testWidgets('should show inactive bell icon when no reminder is set',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.notifications_none), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_active), findsNothing);
+    });
+
+    testWidgets('should show active bell icon when reminder is set',
+        (tester) async {
+      final reminder = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+        frequency: ReminderFrequency.weekly,
+      );
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        reminder: reminder,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Active bell icon should appear (in app bar and in reminder row)
+      expect(find.byIcon(Icons.notifications_active), findsWidgets);
+    });
+
+    testWidgets('should show reminder summary row when reminder is set',
+        (tester) async {
+      final reminder = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+        frequency: ReminderFrequency.weekly,
+      );
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        reminder: reminder,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Should show formatted reminder text with frequency
+      expect(find.textContaining('Weekly'), findsOneWidget);
+    });
+
+    testWidgets('should open reminder picker when bell icon is tapped',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.notifications_none));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Set Reminder'), findsOneWidget);
+      expect(find.text('All assigned persons will be notified'), findsOneWidget);
+    });
+
+    testWidgets('should set reminder and schedule notification when saved',
+        (tester) async {
+      final note = ChecklistNote(
+        id: 'note-1',
+        title: 'Tasks',
+        items: const [
+          ChecklistItem(id: 'i1', text: 'Item', order: 0),
+        ],
+        createdAt: now,
+        updatedAt: now,
+        assigneeIds: const ['actor-1'],
+      );
+      await dataSource.createNote(note);
+
+      await tester.pumpWidget(createDetailPage(note));
+      await tester.pumpAndSettle();
+
+      // Open reminder picker
+      await tester.tap(find.byIcon(Icons.notifications_none));
+      await tester.pumpAndSettle();
+
+      // Save with defaults
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      // Notification should have been scheduled
+      expect(notificationService.scheduledNotifications, hasLength(1));
+      expect(notificationService.scheduledNotifications.first.noteId, 'note-1');
+
+      // Bell should now be active
+      expect(find.byIcon(Icons.notifications_active), findsWidgets);
     });
   });
 }

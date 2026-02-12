@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notexlper/domain/entities/checklist_item.dart';
 import 'package:notexlper/domain/entities/checklist_note.dart';
+import 'package:notexlper/domain/entities/reminder.dart';
 
 void main() {
   group('ChecklistNote', () {
@@ -149,6 +150,111 @@ void main() {
         createdAt: now,
         updatedAt: now,
         assigneeIds: const ['actor-2'],
+      );
+
+      expect(note1, isNot(note2));
+    });
+
+    test('should have null reminder by default', () {
+      final note = createNote();
+
+      expect(note.reminder, isNull);
+      expect(note.hasActiveReminder, false);
+    });
+
+    test('should store reminder', () {
+      final reminder = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+        frequency: ReminderFrequency.weekly,
+      );
+      final note = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        reminder: reminder,
+      );
+
+      expect(note.reminder, reminder);
+      expect(note.hasActiveReminder, true);
+    });
+
+    test('hasActiveReminder should be false when reminder is disabled', () {
+      final reminder = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+        isEnabled: false,
+      );
+      final note = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        reminder: reminder,
+      );
+
+      expect(note.hasActiveReminder, false);
+    });
+
+    test('copyWith should update reminder', () {
+      final note = createNote();
+      final reminder = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+      );
+      final updated = note.copyWith(reminder: reminder);
+
+      expect(updated.reminder, reminder);
+      expect(updated.hasActiveReminder, true);
+    });
+
+    test('copyWith with clearReminder should remove reminder', () {
+      final reminder = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+      );
+      final note = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        reminder: reminder,
+      );
+
+      final cleared = note.copyWith(clearReminder: true);
+
+      expect(cleared.reminder, isNull);
+      expect(cleared.hasActiveReminder, false);
+    });
+
+    test('notes with different reminders should not be equal', () {
+      final r1 = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 15, 9, 0),
+      );
+      final r2 = Reminder(
+        id: 'r-1',
+        dateTime: DateTime(2025, 6, 16, 9, 0),
+      );
+      final note1 = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        reminder: r1,
+      );
+      final note2 = ChecklistNote(
+        id: 'test-id',
+        title: 'Test',
+        items: const [],
+        createdAt: now,
+        updatedAt: now,
+        reminder: r2,
       );
 
       expect(note1, isNot(note2));
