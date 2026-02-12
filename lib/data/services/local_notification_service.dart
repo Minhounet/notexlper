@@ -43,7 +43,6 @@ class LocalNotificationService implements NotificationService {
           plugin.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.requestNotificationsPermission();
-      await androidPlugin?.requestExactAlarmsPermission();
     }
 
     return LocalNotificationService(plugin);
@@ -74,7 +73,21 @@ class LocalNotificationService implements NotificationService {
       iOS: iosDetails,
     );
 
-    final scheduledDate = tz.TZDateTime.from(reminder.dateTime, tz.local);
+    // Ensure the scheduled time is in the future
+    var scheduledDate = tz.TZDateTime.from(reminder.dateTime, tz.local);
+    final now = tz.TZDateTime.now(tz.local);
+    if (scheduledDate.isBefore(now) || scheduledDate.isAtSameMomentAs(now)) {
+      // For recurring reminders, advance to the next occurrence
+      final next = reminder.nextOccurrence(from: now);
+      if (next != null) {
+        scheduledDate = tz.TZDateTime.from(next, tz.local);
+      } else {
+        debugPrint(
+          '[LocalNotificationService] Skipped: scheduled time is in the past',
+        );
+        return;
+      }
+    }
 
     // Cancel previous for this note before scheduling new one
     await _plugin.cancel(id);
@@ -86,7 +99,7 @@ class LocalNotificationService implements NotificationService {
         notification.body,
         scheduledDate,
         details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: null,
@@ -114,7 +127,7 @@ class LocalNotificationService implements NotificationService {
         notification.body,
         scheduledDate,
         details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: matchComponents,
@@ -123,7 +136,7 @@ class LocalNotificationService implements NotificationService {
 
     debugPrint(
       '[LocalNotificationService] Scheduled "${notification.title}" '
-      'at ${reminder.dateTime} (${reminder.frequency.label}) '
+      'at $scheduledDate (${reminder.frequency.label}) '
       'for ${notification.recipientIds.length} recipient(s)',
     );
   }

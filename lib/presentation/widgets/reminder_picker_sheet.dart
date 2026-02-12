@@ -75,6 +75,14 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
     }
   }
 
+  void _applyPreset(Duration offset) {
+    final target = DateTime.now().add(offset);
+    setState(() {
+      _selectedDate = target;
+      _selectedTime = TimeOfDay.fromDateTime(target);
+    });
+  }
+
   void _save() {
     final reminder = Reminder(
       id: widget.existingReminder?.id ??
@@ -116,7 +124,39 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Quick presets
+          Wrap(
+            spacing: 8,
+            children: [
+              ActionChip(
+                label: const Text('In 1 min'),
+                onPressed: () => _applyPreset(const Duration(minutes: 1)),
+              ),
+              ActionChip(
+                label: const Text('In 5 min'),
+                onPressed: () => _applyPreset(const Duration(minutes: 5)),
+              ),
+              ActionChip(
+                label: const Text('In 1 hour'),
+                onPressed: () => _applyPreset(const Duration(hours: 1)),
+              ),
+              ActionChip(
+                label: const Text('Tomorrow 9 AM'),
+                onPressed: () {
+                  final tomorrow = DateTime.now().add(const Duration(days: 1));
+                  setState(() {
+                    _selectedDate = DateTime(
+                        tomorrow.year, tomorrow.month, tomorrow.day, 9);
+                    _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+                  });
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
 
           // Date picker
           ListTile(
