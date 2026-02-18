@@ -28,6 +28,10 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
   late TimeOfDay _selectedTime;
   late ReminderFrequency _frequency;
 
+  /// When the user picks a quick preset (e.g. "In 1 min"), we store the
+  /// offset and recompute at save-time so the seconds aren't stale.
+  Duration? _presetOffset;
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +65,10 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _presetOffset = null; // User manually picked, clear preset
+      });
     }
   }
 
@@ -71,7 +78,10 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
       initialTime: _selectedTime,
     );
     if (picked != null) {
-      setState(() => _selectedTime = picked);
+      setState(() {
+        _selectedTime = picked;
+        _presetOffset = null; // User manually picked, clear preset
+      });
     }
   }
 
@@ -80,14 +90,24 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
     setState(() {
       _selectedDate = target;
       _selectedTime = TimeOfDay.fromDateTime(target);
+      _presetOffset = offset; // Remember offset for fresh computation on Save
     });
   }
 
   void _save() {
+    // If a preset was used, recompute from NOW so we don't lose seconds
+    // to the truncation between when the preset was tapped and Save.
+    final DateTime dateTime;
+    if (_presetOffset != null) {
+      dateTime = DateTime.now().add(_presetOffset!);
+    } else {
+      dateTime = _combinedDateTime;
+    }
+
     final reminder = Reminder(
       id: widget.existingReminder?.id ??
           'reminder-${DateTime.now().millisecondsSinceEpoch}',
-      dateTime: _combinedDateTime,
+      dateTime: dateTime,
       frequency: _frequency,
     );
     widget.onSave(reminder);
@@ -150,6 +170,7 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
                     _selectedDate = DateTime(
                         tomorrow.year, tomorrow.month, tomorrow.day, 9);
                     _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+                    _presetOffset = null; // Not a relative offset
                   });
                 },
               ),

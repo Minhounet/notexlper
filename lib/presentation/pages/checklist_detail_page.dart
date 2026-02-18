@@ -239,14 +239,15 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     _save();
   }
 
-  void _scheduleNotification(Reminder reminder) {
+  Future<void> _scheduleNotification(Reminder reminder) async {
     final notifService = ref.read(notificationServiceProvider);
     final title = _note.title.isEmpty ? 'Checklist Reminder' : _note.title;
     final unchecked = _note.items.where((i) => !i.isChecked).length;
     final body = '$unchecked item(s) remaining'
         '${reminder.frequency != ReminderFrequency.once ? ' (${reminder.frequency.label})' : ''}';
 
-    notifService.scheduleReminder(ScheduledNotification(
+    // Await so the schedule completes before showing confirmation
+    await notifService.scheduleReminder(ScheduledNotification(
       noteId: _note.id,
       title: title,
       body: body,
@@ -256,7 +257,7 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
 
     // Show an immediate confirmation notification
     final summary = _formatReminderSummary(reminder);
-    notifService.showNow(
+    await notifService.showNow(
       title: 'Reminder set: $title',
       body: summary,
     );

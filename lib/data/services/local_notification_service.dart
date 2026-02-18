@@ -8,19 +8,38 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../domain/entities/reminder.dart';
 import '../../domain/services/notification_service.dart';
 
+/// Notification details shared across all reminder notifications.
+/// Using a single channel avoids Android caching issues.
+const _androidDetails = AndroidNotificationDetails(
+  'checklist_reminders_v2',
+  'Checklist Reminders',
+  channelDescription: 'Reminder notifications for your checklists',
+  importance: Importance.max,
+  priority: Priority.high,
+  playSound: true,
+  enableVibration: true,
+);
+const _iosDetails = DarwinNotificationDetails(
+  presentAlert: true,
+  presentBadge: true,
+  presentSound: true,
+);
+const _notifDetails = NotificationDetails(
+  android: _androidDetails,
+  iOS: _iosDetails,
+);
+
 /// Real notification service using [flutter_local_notifications].
-///
-/// Schedules platform notifications that fire at the specified date/time
-/// and repeat according to the selected frequency.
-/// All assigned persons see the notification on their device.
 ///
 /// Uses a dual strategy for reliability:
 /// - Platform alarm via [zonedSchedule] (works when app is killed/background)
-/// - Foreground [Timer] via [show] (guaranteed when app is open)
+/// - Foreground [Timer] + [show] (guaranteed when app is open)
+///
+/// If the scheduled time is in the past or within 5 seconds, fires immediately.
 class LocalNotificationService implements NotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
   final List<ScheduledNotification> _scheduled = [];
-  Timer? _foregroundTimer;
+  final Map<String, Timer> _foregroundTimers = {};
 
   LocalNotificationService(this._plugin);
 
@@ -63,62 +82,54 @@ class LocalNotificationService implements NotificationService {
     _scheduled.removeWhere((n) => n.noteId == notification.noteId);
     _scheduled.add(notification);
 
-    // Cancel any existing foreground timer
-    _foregroundTimer?.cancel();
-    _foregroundTimer = null;
+    // Cancel any existing timer for this note
+    _foregroundTimers[notification.noteId]?.cancel();
+    _foregroundTimers.remove(notification.noteId);
 
     final id = _notificationId(notification.noteId);
     final reminder = notification.reminder;
 
-    const androidDetails = AndroidNotificationDetails(
-      'reminders',
-      'Reminders',
-      channelDescription: 'Checklist reminder notifications',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Ensure the scheduled time is in the future
+    // Compute the target time
     var scheduledDate = tz.TZDateTime.from(reminder.dateTime, tz.local);
     final now = tz.TZDateTime.now(tz.local);
+
+    debugPrint(
+      '[Notif] scheduleReminder called: '
+      'scheduledDate=$scheduledDate, now=$now, '
+      'diff=${scheduledDate.difference(now).inSeconds}s',
+    );
+
     if (scheduledDate.isBefore(now) || scheduledDate.isAtSameMomentAs(now)) {
-      // For recurring reminders, advance to the next occurrence
       final next = reminder.nextOccurrence(from: now);
       if (next != null) {
         scheduledDate = tz.TZDateTime.from(next, tz.local);
       } else {
-        debugPrint(
-          '[Notif] SKIP: scheduled time ${reminder.dateTime} is in the past',
-        );
+        // Time is past for a once-only reminder → fire immediately
+        debugPrint('[Notif] Time is past for once-only → firing NOW');
+        await _plugin.show(id, notification.title, notification.body, _notifDetails);
         return;
       }
     }
 
-    // Cancel previous platform alarm for this note
+    // Cancel previous platform alarm
     await _plugin.cancel(id);
 
-    final delay = scheduledDate.difference(now);
+    final delay = scheduledDate.difference(tz.TZDateTime.now(tz.local));
     debugPrint(
-      '[Notif] Scheduling "${notification.title}" in ${delay.inSeconds}s '
-      '(at $scheduledDate, mode=${reminder.frequency.label})',
+      '[Notif] Will fire "${notification.title}" in ${delay.inSeconds}s',
     );
 
+    // If delay is very short (< 5s), just fire immediately
+    if (delay.inSeconds < 5) {
+      debugPrint('[Notif] Delay < 5s → firing NOW');
+      await _plugin.show(id, notification.title, notification.body, _notifDetails);
+      return;
+    }
+
     // ── Strategy 1: Foreground Timer (guaranteed when app is open) ──
-    // Always set a Dart-side timer so the notification fires even if
-    // Android's alarm system drops or delays it.
-    _foregroundTimer = Timer(delay, () {
-      debugPrint('[Notif] Foreground timer fired for "${notification.title}"');
-      _plugin.show(
-        id,
-        notification.title,
-        notification.body,
-        details,
-      );
+    _foregroundTimers[notification.noteId] = Timer(delay, () {
+      debugPrint('[Notif] Timer fired for "${notification.title}"');
+      _plugin.show(id, notification.title, notification.body, _notifDetails);
     });
 
     // ── Strategy 2: Platform alarm (works when app is backgrounded/killed) ──
@@ -129,13 +140,12 @@ class LocalNotificationService implements NotificationService {
           notification.title,
           notification.body,
           scheduledDate,
-          details,
+          _notifDetails,
           androidScheduleMode: AndroidScheduleMode.alarmClock,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
         );
       } else {
-        // For recurring reminders, match the appropriate date component
         DateTimeComponents? matchComponents;
         switch (reminder.frequency) {
           case ReminderFrequency.daily:
@@ -148,7 +158,7 @@ class LocalNotificationService implements NotificationService {
             matchComponents = DateTimeComponents.dayOfMonthAndTime;
             break;
           case ReminderFrequency.once:
-            break; // Already handled above
+            break;
         }
 
         await _plugin.zonedSchedule(
@@ -156,7 +166,7 @@ class LocalNotificationService implements NotificationService {
           notification.title,
           notification.body,
           scheduledDate,
-          details,
+          _notifDetails,
           androidScheduleMode: AndroidScheduleMode.alarmClock,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -166,35 +176,19 @@ class LocalNotificationService implements NotificationService {
       debugPrint('[Notif] Platform alarm set OK');
     } catch (e, st) {
       debugPrint('[Notif] zonedSchedule FAILED: $e\n$st');
-      // Foreground timer is already set as fallback, so the user will
-      // still get the notification if the app stays open.
     }
   }
 
   @override
   Future<void> showNow({required String title, required String body}) async {
-    const androidDetails = AndroidNotificationDetails(
-      'reminders_confirm',
-      'Reminder confirmations',
-      channelDescription: 'Confirmation when a reminder is set',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-    );
-    const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Use a fixed high ID so confirmation notifications don't clash with scheduled ones
-    await _plugin.show(0x7FFFFFFE, title, body, details);
+    await _plugin.show(0x7FFFFFFE, title, body, _notifDetails);
   }
 
   @override
   Future<void> cancelReminder(String noteId) async {
     _scheduled.removeWhere((n) => n.noteId == noteId);
-    _foregroundTimer?.cancel();
-    _foregroundTimer = null;
+    _foregroundTimers[noteId]?.cancel();
+    _foregroundTimers.remove(noteId);
     final id = _notificationId(noteId);
     await _plugin.cancel(id);
     debugPrint('[Notif] Cancelled reminder for note $noteId');
