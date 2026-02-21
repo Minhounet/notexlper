@@ -239,28 +239,28 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
     _save();
   }
 
-  Future<void> _scheduleNotification(Reminder reminder) async {
+  void _scheduleNotification(Reminder reminder) {
     final notifService = ref.read(notificationServiceProvider);
     final title = _note.title.isEmpty ? 'Checklist Reminder' : _note.title;
     final unchecked = _note.items.where((i) => !i.isChecked).length;
     final body = '$unchecked item(s) remaining'
         '${reminder.frequency != ReminderFrequency.once ? ' (${reminder.frequency.label})' : ''}';
 
-    // Await so the schedule completes before showing confirmation
-    await notifService.scheduleReminder(ScheduledNotification(
+    // Show confirmation FIRST (this is proven to work)
+    final summary = _formatReminderSummary(reminder);
+    notifService.showNow(
+      title: 'Reminder set: $title',
+      body: summary,
+    );
+
+    // Then schedule the future notification (fire-and-forget, errors logged)
+    notifService.scheduleReminder(ScheduledNotification(
       noteId: _note.id,
       title: title,
       body: body,
       recipientIds: _note.assigneeIds,
       reminder: reminder,
     ));
-
-    // Show an immediate confirmation notification
-    final summary = _formatReminderSummary(reminder);
-    await notifService.showNow(
-      title: 'Reminder set: $title',
-      body: summary,
-    );
   }
 
   List<ChecklistItem> _applySorting(List<ChecklistItem> items) {

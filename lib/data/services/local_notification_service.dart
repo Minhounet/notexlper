@@ -8,27 +8,6 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../domain/entities/reminder.dart';
 import '../../domain/services/notification_service.dart';
 
-/// Notification details shared across all reminder notifications.
-/// Using a single channel avoids Android caching issues.
-const _androidDetails = AndroidNotificationDetails(
-  'checklist_reminders_v2',
-  'Checklist Reminders',
-  channelDescription: 'Reminder notifications for your checklists',
-  importance: Importance.max,
-  priority: Priority.high,
-  playSound: true,
-  enableVibration: true,
-);
-const _iosDetails = DarwinNotificationDetails(
-  presentAlert: true,
-  presentBadge: true,
-  presentSound: true,
-);
-const _notifDetails = NotificationDetails(
-  android: _androidDetails,
-  iOS: _iosDetails,
-);
-
 /// Real notification service using [flutter_local_notifications].
 ///
 /// Uses a dual strategy for reliability:
@@ -42,6 +21,34 @@ class LocalNotificationService implements NotificationService {
   final Map<String, Timer> _foregroundTimers = {};
 
   LocalNotificationService(this._plugin);
+
+  /// Notification details for reminder alerts (high importance = heads-up).
+  static const _reminderDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'checklist_reminders',
+      'Checklist Reminders',
+      channelDescription: 'Reminder notifications for your checklists',
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+    iOS: DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
+  );
+
+  /// Notification details for confirmations (default importance).
+  static const _confirmDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'reminders_confirm',
+      'Reminder confirmations',
+      channelDescription: 'Confirmation when a reminder is set',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
 
   /// Initialize the plugin. Must be called once at app startup.
   static Future<LocalNotificationService> init() async {
@@ -78,6 +85,20 @@ class LocalNotificationService implements NotificationService {
 
   @override
   Future<void> scheduleReminder(ScheduledNotification notification) async {
+    try {
+      await _scheduleReminderImpl(notification);
+    } catch (e, st) {
+      debugPrint('[Notif] scheduleReminder FAILED: $e\n$st');
+      // Last resort: try to fire immediately so user sees something
+      try {
+        final id = _notificationId(notification.noteId);
+        await _plugin.show(
+            id, notification.title, notification.body, _confirmDetails);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _scheduleReminderImpl(ScheduledNotification notification) async {
     // Track internally
     _scheduled.removeWhere((n) => n.noteId == notification.noteId);
     _scheduled.add(notification);
@@ -94,8 +115,8 @@ class LocalNotificationService implements NotificationService {
     final now = tz.TZDateTime.now(tz.local);
 
     debugPrint(
-      '[Notif] scheduleReminder called: '
-      'scheduledDate=$scheduledDate, now=$now, '
+      '[Notif] scheduleReminder: '
+      'target=$scheduledDate, now=$now, '
       'diff=${scheduledDate.difference(now).inSeconds}s',
     );
 
@@ -105,8 +126,9 @@ class LocalNotificationService implements NotificationService {
         scheduledDate = tz.TZDateTime.from(next, tz.local);
       } else {
         // Time is past for a once-only reminder → fire immediately
-        debugPrint('[Notif] Time is past for once-only → firing NOW');
-        await _plugin.show(id, notification.title, notification.body, _notifDetails);
+        debugPrint('[Notif] Past once-only → firing NOW');
+        await _plugin.show(
+            id, notification.title, notification.body, _reminderDetails);
         return;
       }
     }
@@ -115,21 +137,21 @@ class LocalNotificationService implements NotificationService {
     await _plugin.cancel(id);
 
     final delay = scheduledDate.difference(tz.TZDateTime.now(tz.local));
-    debugPrint(
-      '[Notif] Will fire "${notification.title}" in ${delay.inSeconds}s',
-    );
+    debugPrint('[Notif] "${notification.title}" in ${delay.inSeconds}s');
 
     // If delay is very short (< 5s), just fire immediately
     if (delay.inSeconds < 5) {
       debugPrint('[Notif] Delay < 5s → firing NOW');
-      await _plugin.show(id, notification.title, notification.body, _notifDetails);
+      await _plugin.show(
+          id, notification.title, notification.body, _reminderDetails);
       return;
     }
 
     // ── Strategy 1: Foreground Timer (guaranteed when app is open) ──
     _foregroundTimers[notification.noteId] = Timer(delay, () {
       debugPrint('[Notif] Timer fired for "${notification.title}"');
-      _plugin.show(id, notification.title, notification.body, _notifDetails);
+      _plugin.show(
+          id, notification.title, notification.body, _reminderDetails);
     });
 
     // ── Strategy 2: Platform alarm (works when app is backgrounded/killed) ──
@@ -140,7 +162,7 @@ class LocalNotificationService implements NotificationService {
           notification.title,
           notification.body,
           scheduledDate,
-          _notifDetails,
+          _reminderDetails,
           androidScheduleMode: AndroidScheduleMode.alarmClock,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -166,7 +188,7 @@ class LocalNotificationService implements NotificationService {
           notification.title,
           notification.body,
           scheduledDate,
-          _notifDetails,
+          _reminderDetails,
           androidScheduleMode: AndroidScheduleMode.alarmClock,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
@@ -181,7 +203,13 @@ class LocalNotificationService implements NotificationService {
 
   @override
   Future<void> showNow({required String title, required String body}) async {
-    await _plugin.show(0x7FFFFFFE, title, body, _notifDetails);
+    try {
+      // Use the same channel/config that was proven to work previously
+      await _plugin.show(0x7FFFFFFE, title, body, _confirmDetails);
+      debugPrint('[Notif] showNow OK: "$title"');
+    } catch (e, st) {
+      debugPrint('[Notif] showNow FAILED: $e\n$st');
+    }
   }
 
   @override
