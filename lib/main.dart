@@ -1,14 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'core/constants/app_constants.dart';
+import 'data/services/local_notification_service.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/login_page.dart';
 import 'presentation/pages/splash_page.dart';
+import 'presentation/providers/notification_providers.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: NotexlperApp()));
+
+  // Initialize timezone with the device's actual timezone
+  tz.initializeTimeZones();
+  final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(deviceTimeZone));
+
+  final notificationService = await LocalNotificationService.init();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        notificationServiceProvider.overrideWithValue(notificationService),
+      ],
+      child: const NotexlperApp(),
+    ),
+  );
 }
 
 class NotexlperApp extends StatelessWidget {

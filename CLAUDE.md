@@ -105,6 +105,11 @@ Go to **GitHub > Releases > dev-latest** to download the latest APK.
 - **Build failures**: Verify Android config, pubspec.yaml
 - **Gradle issues**: Ensure all android/ files are present
 
+## Error Handling Policy
+- **In dev mode, no exception must be silently swallowed.** Always rethrow or log visibly (e.g., `debugPrint` + rethrow, or show a SnackBar/dialog) so issues are caught early.
+- Never use empty `catch` blocks in dev code. At minimum, log the error with `debugPrint` or `FlutterError.reportError`.
+- If a try-catch is needed for resilience (e.g., platform calls), always log the full error and stack trace in debug mode.
+
 ## Conventions
 - Entity names: PascalCase
 - File names: snake_case
