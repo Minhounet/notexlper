@@ -1,13 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/datasources/checklist_datasource.dart';
 import '../../data/datasources/local/fake_checklist_datasource.dart';
 import '../../data/repositories/checklist_repository_impl.dart';
 import '../../domain/entities/checklist_note.dart';
 import '../../domain/repositories/checklist_repository.dart';
 import 'actor_providers.dart';
 
-/// Provides the data source instance (singleton)
-final dataSourceProvider = Provider<FakeChecklistDataSource>((ref) {
+/// Provides the data source instance (singleton).
+/// Returns [ChecklistDataSource] so the implementation can be swapped
+/// without changing callers. Currently uses [FakeChecklistDataSource] for
+/// both dev and prod until a Supabase implementation is available.
+final dataSourceProvider = Provider<ChecklistDataSource>((ref) {
   return FakeChecklistDataSource();
 });
 

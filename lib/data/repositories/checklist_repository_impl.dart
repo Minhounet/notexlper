@@ -3,12 +3,13 @@ import 'package:dartz/dartz.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/checklist_note.dart';
 import '../../domain/repositories/checklist_repository.dart';
-import '../datasources/local/fake_checklist_datasource.dart';
+import '../datasources/checklist_datasource.dart';
 
-/// Implementation of ChecklistRepository using the fake data source.
-/// For production, create a separate implementation using Supabase.
+/// Implementation of [ChecklistRepository].
+/// Accepts any [ChecklistDataSource] — use [FakeChecklistDataSource] in dev,
+/// a Supabase implementation in prod.
 class ChecklistRepositoryImpl implements ChecklistRepository {
-  final FakeChecklistDataSource dataSource;
+  final ChecklistDataSource dataSource;
 
   ChecklistRepositoryImpl({required this.dataSource});
 
