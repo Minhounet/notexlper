@@ -3,11 +3,13 @@ import 'package:dartz/dartz.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
-import '../datasources/local/fake_category_datasource.dart';
+import '../datasources/category_datasource.dart';
 
-/// Implementation of CategoryRepository using the fake data source.
+/// Implementation of [CategoryRepository].
+/// Accepts any [CategoryDataSource] — use [FakeCategoryDataSource] in dev,
+/// a Supabase implementation in prod.
 class CategoryRepositoryImpl implements CategoryRepository {
-  final FakeCategoryDataSource dataSource;
+  final CategoryDataSource dataSource;
 
   CategoryRepositoryImpl({required this.dataSource});
 
