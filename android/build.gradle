@@ -14,8 +14,15 @@ subprojects {
 }
 subprojects {
     plugins.withId("com.android.library") {
-        android {
-            compileSdkVersion 35
+        // Provide flutter.* SDK properties that some plugins rely on
+        // (e.g. app_links uses flutter.compileSdkVersion inside android {}).
+        android.ext {
+            flutter = [
+                compileSdkVersion: 35,
+                minSdkVersion    : 21,
+                targetSdkVersion : 35,
+                ndkVersion       : "25.1.8937393",
+            ]
         }
     }
 }
