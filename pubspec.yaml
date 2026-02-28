@@ -32,6 +32,9 @@ dependencies:
   timezone: ^0.9.4
   flutter_timezone: ^3.0.1
 
+  # Backend
+  supabase_flutter: ^2.3.0
+
   # UUID generation
   uuid: ^4.2.2
 

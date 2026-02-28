@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -19,6 +20,12 @@ void main() async {
   final NotificationService notificationService;
 
   if (AppConstants.isProd) {
+    // Connect to Supabase.
+    await Supabase.initialize(
+      url: AppConstants.supabaseUrl,
+      anonKey: AppConstants.supabaseAnonKey,
+    );
+
     // Real notification service: initialize timezone and platform plugin.
     tz.initializeTimeZones();
     final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
