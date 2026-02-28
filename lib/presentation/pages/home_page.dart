@@ -41,11 +41,34 @@ class HomePage extends ConsumerWidget {
                 ),
               )
             : null,
-        title: Text(
-          AppConstants.appName,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppConstants.appName,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            if (AppConstants.isDev)
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'DEV',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
+          ],
         ),
         centerTitle: true,
         actions: [

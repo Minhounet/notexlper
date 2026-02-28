@@ -1,12 +1,13 @@
 import '../../../domain/entities/checklist_item.dart';
 import '../../../domain/entities/checklist_note.dart';
+import '../checklist_datasource.dart';
 
 /// Fake data source for development and testing.
 /// Stores data in memory.
 ///
 /// Use [delay] to control simulated network latency.
 /// Set to [Duration.zero] in widget tests to avoid fake timer issues.
-class FakeChecklistDataSource {
+class FakeChecklistDataSource implements ChecklistDataSource {
   final Map<String, ChecklistNote> _notes = {};
   final Duration delay;
 
@@ -54,28 +55,33 @@ class FakeChecklistDataSource {
     }
   }
 
+  @override
   Future<List<ChecklistNote>> getAllNotes() async {
     await _simulateDelay();
     return _notes.values.toList();
   }
 
+  @override
   Future<ChecklistNote?> getNoteById(String id) async {
     await _simulateDelay();
     return _notes[id];
   }
 
+  @override
   Future<ChecklistNote> createNote(ChecklistNote note) async {
     await _simulateDelay();
     _notes[note.id] = note;
     return note;
   }
 
+  @override
   Future<ChecklistNote> updateNote(ChecklistNote note) async {
     await _simulateDelay();
     _notes[note.id] = note;
     return note;
   }
 
+  @override
   Future<void> deleteNote(String id) async {
     await _simulateDelay();
     _notes.remove(id);

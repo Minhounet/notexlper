@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/category.dart';
+import '../category_datasource.dart';
 
 /// Fake data source for categories (development and testing).
 /// Stores data in memory.
-class FakeCategoryDataSource {
+class FakeCategoryDataSource implements CategoryDataSource {
   final Map<String, Category> _categories = {};
   final Duration delay;
 
@@ -41,28 +42,33 @@ class FakeCategoryDataSource {
     }
   }
 
+  @override
   Future<List<Category>> getAllCategories() async {
     await _simulateDelay();
     return _categories.values.toList();
   }
 
+  @override
   Future<Category?> getCategoryById(String id) async {
     await _simulateDelay();
     return _categories[id];
   }
 
+  @override
   Future<Category> createCategory(Category category) async {
     await _simulateDelay();
     _categories[category.id] = category;
     return category;
   }
 
+  @override
   Future<Category> updateCategory(Category category) async {
     await _simulateDelay();
     _categories[category.id] = category;
     return category;
   }
 
+  @override
   Future<void> deleteCategory(String id) async {
     await _simulateDelay();
     _categories.remove(id);

@@ -1,8 +1,9 @@
 import '../../../domain/entities/actor.dart';
+import '../actor_datasource.dart';
 
 /// Fake data source for actors in development and testing.
 /// Seeds two actors for the workspace.
-class FakeActorDataSource {
+class FakeActorDataSource implements ActorDataSource {
   final Map<String, Actor> _actors = {};
   final Duration delay;
 
@@ -31,11 +32,13 @@ class FakeActorDataSource {
     }
   }
 
+  @override
   Future<List<Actor>> getAllActors() async {
     await _simulateDelay();
     return _actors.values.toList();
   }
 
+  @override
   Future<Actor?> getActorById(String id) async {
     await _simulateDelay();
     return _actors[id];

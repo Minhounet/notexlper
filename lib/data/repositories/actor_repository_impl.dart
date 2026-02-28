@@ -3,11 +3,13 @@ import 'package:dartz/dartz.dart';
 import '../../core/error/failures.dart';
 import '../../domain/entities/actor.dart';
 import '../../domain/repositories/actor_repository.dart';
-import '../datasources/local/fake_actor_datasource.dart';
+import '../datasources/actor_datasource.dart';
 
-/// Implementation of ActorRepository using the fake data source.
+/// Implementation of [ActorRepository].
+/// Accepts any [ActorDataSource] — use [FakeActorDataSource] in dev,
+/// a Supabase implementation in prod.
 class ActorRepositoryImpl implements ActorRepository {
-  final FakeActorDataSource dataSource;
+  final ActorDataSource dataSource;
 
   ActorRepositoryImpl({required this.dataSource});
 

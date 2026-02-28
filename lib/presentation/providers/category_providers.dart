@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/datasources/category_datasource.dart';
 import '../../data/datasources/local/fake_category_datasource.dart';
 import '../../data/repositories/category_repository_impl.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
 
-/// Provides the category data source instance (singleton)
-final categoryDataSourceProvider = Provider<FakeCategoryDataSource>((ref) {
+/// Provides the category data source instance (singleton).
+/// Returns [CategoryDataSource] so the implementation can be swapped
+/// without changing callers. Currently uses [FakeCategoryDataSource] for
+/// both dev and prod until a Supabase implementation is available.
+final categoryDataSourceProvider = Provider<CategoryDataSource>((ref) {
   return FakeCategoryDataSource();
 });
 

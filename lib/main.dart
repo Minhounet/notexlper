@@ -5,7 +5,9 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'core/constants/app_constants.dart';
+import 'data/services/fake_notification_service.dart';
 import 'data/services/local_notification_service.dart';
+import 'domain/services/notification_service.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/login_page.dart';
 import 'presentation/pages/splash_page.dart';
@@ -14,12 +16,18 @@ import 'presentation/providers/notification_providers.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize timezone with the device's actual timezone
-  tz.initializeTimeZones();
-  final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(deviceTimeZone));
+  final NotificationService notificationService;
 
-  final notificationService = await LocalNotificationService.init();
+  if (AppConstants.isProd) {
+    // Real notification service: initialize timezone and platform plugin.
+    tz.initializeTimeZones();
+    final deviceTimeZone = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(deviceTimeZone));
+    notificationService = await LocalNotificationService.init();
+  } else {
+    // Dev mode: use fake service — no platform calls, no permission dialogs.
+    notificationService = FakeNotificationService();
+  }
 
   runApp(
     ProviderScope(
