@@ -57,15 +57,24 @@ jobs:
       - name: Build APK (Dev mode)
         run: flutter build apk --release --dart-define=ENV=dev
 
-      - name: Rename APK
+      - name: Rename Dev APK
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/notexlper-dev.apk
 
-      - name: Upload APK as artifact
+      - name: Build APK (Prod mode)
+        run: flutter build apk --release --dart-define=ENV=prod
+
+      - name: Rename Prod APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/notexlper-prod.apk
+
+      - name: Upload APKs as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: notexlper-apk
-          path: build/app/outputs/flutter-apk/notexlper-dev.apk
+          name: notexlper-apks
+          path: |
+            build/app/outputs/flutter-apk/notexlper-dev.apk
+            build/app/outputs/flutter-apk/notexlper-prod.apk
           retention-days: 30
 
       - name: Set release tag
@@ -102,10 +111,13 @@ jobs:
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`
 
-            This APK uses fake data (no backend required).
-
-            Download and install `notexlper-dev.apk` on your Android device.
-          files: build/app/outputs/flutter-apk/notexlper-dev.apk
+            | APK | Backend |
+            |---|---|
+            | `notexlper-dev.apk` | Fake in-memory data (no backend required) |
+            | `notexlper-prod.apk` | Real Supabase backend |
+          files: |
+            build/app/outputs/flutter-apk/notexlper-dev.apk
+            build/app/outputs/flutter-apk/notexlper-prod.apk
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

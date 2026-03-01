@@ -1,16 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/datasources/actor_datasource.dart';
 import '../../data/datasources/local/fake_actor_datasource.dart';
+import '../../data/datasources/remote/supabase_actor_datasource.dart';
 import '../../data/repositories/actor_repository_impl.dart';
 import '../../domain/entities/actor.dart';
 import '../../domain/repositories/actor_repository.dart';
 
 /// Provides the actor data source instance (singleton).
-/// Returns [ActorDataSource] so the implementation can be swapped
-/// without changing callers. Currently uses [FakeActorDataSource] for
-/// both dev and prod until a Supabase implementation is available.
+/// Uses [SupabaseActorDataSource] in prod, [FakeActorDataSource] in dev.
 final actorDataSourceProvider = Provider<ActorDataSource>((ref) {
+  if (AppConstants.isProd) {
+    return SupabaseActorDataSource(Supabase.instance.client);
+  }
   return FakeActorDataSource();
 });
 

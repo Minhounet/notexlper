@@ -12,6 +12,20 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(":app")
 }
+subprojects {
+    plugins.withId("com.android.library") {
+        // Provide flutter.* SDK properties that some plugins rely on
+        // (e.g. app_links uses flutter.compileSdkVersion inside android {}).
+        android.ext {
+            flutter = [
+                compileSdkVersion: 35,
+                minSdkVersion    : 21,
+                targetSdkVersion : 35,
+                ndkVersion       : "25.1.8937393",
+            ]
+        }
+    }
+}
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
