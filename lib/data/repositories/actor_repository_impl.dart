@@ -35,4 +35,14 @@ class ActorRepositoryImpl implements ActorRepository {
       return const Left(CacheFailure('Failed to fetch actor'));
     }
   }
+
+  @override
+  Future<Either<Failure, Actor>> createActor(Actor actor) async {
+    try {
+      final created = await dataSource.createActor(actor);
+      return Right(created);
+    } catch (e) {
+      return const Left(CacheFailure('Failed to create actor'));
+    }
+  }
 }
