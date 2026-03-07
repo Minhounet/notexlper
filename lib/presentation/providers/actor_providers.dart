@@ -1,7 +1,9 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/error/failures.dart';
 import '../../data/datasources/actor_datasource.dart';
 import '../../data/datasources/local/fake_actor_datasource.dart';
 import '../../data/datasources/remote/supabase_actor_datasource.dart';
@@ -58,6 +60,18 @@ class ActorListNotifier extends StateNotifier<AsyncValue<List<Actor>>> {
       (failure) => state = AsyncValue.error(failure.message, StackTrace.current),
       (actors) => state = AsyncValue.data(actors),
     );
+  }
+
+  Future<Either<Failure, Actor>> createActor(Actor actor) async {
+    final result = await _repository.createActor(actor);
+    result.fold(
+      (failure) {},
+      (created) {
+        final current = state.valueOrNull ?? [];
+        state = AsyncValue.data([...current, created]);
+      },
+    );
+    return result;
   }
 }
 

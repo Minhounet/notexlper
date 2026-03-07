@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../core/error/failures.dart';
+import '../../core/logging/app_logger.dart';
 import '../../domain/entities/checklist_note.dart';
 import '../../domain/repositories/checklist_repository.dart';
 import '../datasources/checklist_datasource.dart';
@@ -18,8 +19,9 @@ class ChecklistRepositoryImpl implements ChecklistRepository {
     try {
       final notes = await dataSource.getAllNotes();
       return Right(notes);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to fetch notes'));
+    } catch (e, s) {
+      AppLogger.instance.log('getAllNotes failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to fetch notes: $e'));
     }
   }
 
@@ -31,8 +33,9 @@ class ChecklistRepositoryImpl implements ChecklistRepository {
         return const Left(NotFoundFailure('Note not found'));
       }
       return Right(note);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to fetch note'));
+    } catch (e, s) {
+      AppLogger.instance.log('getNoteById($id) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to fetch note: $e'));
     }
   }
 
@@ -41,8 +44,9 @@ class ChecklistRepositoryImpl implements ChecklistRepository {
     try {
       final created = await dataSource.createNote(note);
       return Right(created);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to create note'));
+    } catch (e, s) {
+      AppLogger.instance.log('createNote failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to create note: $e'));
     }
   }
 
@@ -51,8 +55,9 @@ class ChecklistRepositoryImpl implements ChecklistRepository {
     try {
       final updated = await dataSource.updateNote(note);
       return Right(updated);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to update note'));
+    } catch (e, s) {
+      AppLogger.instance.log('updateNote(${note.id}) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to update note: $e'));
     }
   }
 
@@ -61,8 +66,9 @@ class ChecklistRepositoryImpl implements ChecklistRepository {
     try {
       await dataSource.deleteNote(id);
       return const Right(null);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to delete note'));
+    } catch (e, s) {
+      AppLogger.instance.log('deleteNote($id) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to delete note: $e'));
     }
   }
 
@@ -91,8 +97,10 @@ class ChecklistRepositoryImpl implements ChecklistRepository {
 
       await dataSource.updateNote(updatedNote);
       return Right(updatedNote);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to toggle item'));
+    } catch (e, s) {
+      AppLogger.instance
+          .log('toggleItemChecked($noteId, $itemId) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to toggle item: $e'));
     }
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notexlper/data/datasources/local/fake_actor_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_category_datasource.dart';
 import 'package:notexlper/data/datasources/local/fake_checklist_datasource.dart';
+import 'package:notexlper/data/datasources/local/fake_workspace_datasource.dart';
 import 'package:notexlper/domain/entities/actor.dart';
 import 'package:notexlper/domain/entities/checklist_item.dart';
 import 'package:notexlper/domain/entities/checklist_note.dart';
@@ -11,11 +12,13 @@ import 'package:notexlper/presentation/pages/home_page.dart';
 import 'package:notexlper/presentation/providers/actor_providers.dart';
 import 'package:notexlper/presentation/providers/category_providers.dart';
 import 'package:notexlper/presentation/providers/checklist_providers.dart';
+import 'package:notexlper/presentation/providers/workspace_providers.dart';
 
 void main() {
   late FakeChecklistDataSource dataSource;
   late FakeCategoryDataSource categoryDataSource;
   late FakeActorDataSource actorDataSource;
+  late FakeWorkspaceDataSource workspaceDataSource;
 
   setUp(() {
     dataSource = FakeChecklistDataSource(delay: Duration.zero);
@@ -23,6 +26,7 @@ void main() {
     categoryDataSource = FakeCategoryDataSource(delay: Duration.zero);
     categoryDataSource.clear();
     actorDataSource = FakeActorDataSource(delay: Duration.zero);
+    workspaceDataSource = FakeWorkspaceDataSource(delay: Duration.zero);
   });
 
   Widget createHomePage({FakeChecklistDataSource? ds}) {
@@ -31,6 +35,7 @@ void main() {
         dataSourceProvider.overrideWithValue(ds ?? dataSource),
         categoryDataSourceProvider.overrideWithValue(categoryDataSource),
         actorDataSourceProvider.overrideWithValue(actorDataSource),
+        workspaceDataSourceProvider.overrideWithValue(workspaceDataSource),
       ],
       child: const MaterialApp(home: HomePage()),
     );
@@ -42,6 +47,7 @@ void main() {
         dataSourceProvider.overrideWithValue(ds ?? dataSource),
         categoryDataSourceProvider.overrideWithValue(categoryDataSource),
         actorDataSourceProvider.overrideWithValue(actorDataSource),
+        workspaceDataSourceProvider.overrideWithValue(workspaceDataSource),
         currentActorProvider.overrideWith((ref) {
           final notifier = CurrentActorNotifier();
           notifier.login(actor);

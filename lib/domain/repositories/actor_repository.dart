@@ -10,4 +10,7 @@ abstract class ActorRepository {
 
   /// Get a single actor by ID
   Future<Either<Failure, Actor>> getActorById(String id);
+
+  /// Create a new actor and return the persisted instance
+  Future<Either<Failure, Actor>> createActor(Actor actor);
 }

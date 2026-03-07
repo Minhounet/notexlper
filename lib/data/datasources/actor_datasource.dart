@@ -7,4 +7,7 @@ import '../../domain/entities/actor.dart';
 abstract class ActorDataSource {
   Future<List<Actor>> getAllActors();
   Future<Actor?> getActorById(String id);
+
+  /// Creates a new actor and returns the persisted instance.
+  Future<Actor> createActor(Actor actor);
 }
