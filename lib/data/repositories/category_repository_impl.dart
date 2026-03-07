@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../core/error/failures.dart';
+import '../../core/logging/app_logger.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../datasources/category_datasource.dart';
@@ -18,8 +19,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     try {
       final categories = await dataSource.getAllCategories();
       return Right(categories);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to fetch categories'));
+    } catch (e, s) {
+      AppLogger.instance.log('getAllCategories failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to fetch categories: $e'));
     }
   }
 
@@ -31,8 +33,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
         return const Left(NotFoundFailure('Category not found'));
       }
       return Right(category);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to fetch category'));
+    } catch (e, s) {
+      AppLogger.instance.log('getCategoryById($id) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to fetch category: $e'));
     }
   }
 
@@ -41,8 +44,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     try {
       final created = await dataSource.createCategory(category);
       return Right(created);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to create category'));
+    } catch (e, s) {
+      AppLogger.instance.log('createCategory failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to create category: $e'));
     }
   }
 
@@ -51,8 +55,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     try {
       final updated = await dataSource.updateCategory(category);
       return Right(updated);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to update category'));
+    } catch (e, s) {
+      AppLogger.instance.log('updateCategory failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to update category: $e'));
     }
   }
 
@@ -61,8 +66,9 @@ class CategoryRepositoryImpl implements CategoryRepository {
     try {
       await dataSource.deleteCategory(id);
       return const Right(null);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to delete category'));
+    } catch (e, s) {
+      AppLogger.instance.log('deleteCategory($id) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to delete category: $e'));
     }
   }
 }

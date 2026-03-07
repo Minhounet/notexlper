@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../core/error/failures.dart';
+import '../../core/logging/app_logger.dart';
 import '../../domain/entities/actor.dart';
 import '../../domain/repositories/actor_repository.dart';
 import '../datasources/actor_datasource.dart';
@@ -18,8 +19,9 @@ class ActorRepositoryImpl implements ActorRepository {
     try {
       final actors = await dataSource.getAllActors();
       return Right(actors);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to fetch actors'));
+    } catch (e, s) {
+      AppLogger.instance.log('getAllActors failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to fetch actors: $e'));
     }
   }
 
@@ -31,8 +33,9 @@ class ActorRepositoryImpl implements ActorRepository {
         return const Left(NotFoundFailure('Actor not found'));
       }
       return Right(actor);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to fetch actor'));
+    } catch (e, s) {
+      AppLogger.instance.log('getActorById($id) failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to fetch actor: $e'));
     }
   }
 
@@ -41,8 +44,9 @@ class ActorRepositoryImpl implements ActorRepository {
     try {
       final created = await dataSource.createActor(actor);
       return Right(created);
-    } catch (e) {
-      return const Left(CacheFailure('Failed to create actor'));
+    } catch (e, s) {
+      AppLogger.instance.log('createActor failed', error: e, stackTrace: s);
+      return Left(CacheFailure('Failed to create actor: $e'));
     }
   }
 }

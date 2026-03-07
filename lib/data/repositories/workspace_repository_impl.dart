@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../core/error/failures.dart';
+import '../../core/logging/app_logger.dart';
 import '../../domain/entities/workspace.dart';
 import '../../domain/repositories/workspace_repository.dart';
 import '../datasources/workspace_datasource.dart';
@@ -17,7 +18,8 @@ class WorkspaceRepositoryImpl implements WorkspaceRepository {
     try {
       final workspace = await dataSource.getWorkspaceByOwnerId(ownerId);
       return Right(workspace);
-    } catch (e) {
+    } catch (e, s) {
+      AppLogger.instance.log('getWorkspaceForOwner($ownerId) failed', error: e, stackTrace: s);
       return const Left(CacheFailure('Failed to fetch workspace'));
     }
   }
@@ -28,7 +30,8 @@ class WorkspaceRepositoryImpl implements WorkspaceRepository {
     try {
       final created = await dataSource.createWorkspace(workspace);
       return Right(created);
-    } catch (e) {
+    } catch (e, s) {
+      AppLogger.instance.log('createWorkspace failed', error: e, stackTrace: s);
       return const Left(CacheFailure('Failed to create workspace'));
     }
   }
@@ -39,7 +42,8 @@ class WorkspaceRepositoryImpl implements WorkspaceRepository {
     try {
       final updated = await dataSource.addMember(workspaceId, actorId);
       return Right(updated);
-    } catch (e) {
+    } catch (e, s) {
+      AppLogger.instance.log('addMember($workspaceId, $actorId) failed', error: e, stackTrace: s);
       return const Left(CacheFailure('Failed to add workspace member'));
     }
   }

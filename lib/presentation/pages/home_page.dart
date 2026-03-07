@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/logging/app_logger.dart' show AppLogger, LogNotifier;
+import 'log_viewer_page.dart';
 import '../../domain/entities/actor.dart';
 import '../../domain/entities/checklist_item.dart';
 import '../../domain/entities/checklist_note.dart';
@@ -88,6 +90,26 @@ class HomePage extends ConsumerWidget {
         ),
         centerTitle: true,
         actions: [
+          if (AppConstants.isDev)
+            ListenableBuilder(
+              listenable: LogNotifier.instance,
+              builder: (context, _) {
+                final hasErrors = AppLogger.instance.entries
+                    .any((e) => e.error != null);
+                return IconButton(
+                  icon: Badge(
+                    isLabelVisible: hasErrors,
+                    child: const Icon(Icons.bug_report_outlined),
+                  ),
+                  tooltip: 'View logs',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LogViewerPage(),
+                    ),
+                  ),
+                );
+              },
+            ),
           if (workspace != null)
             IconButton(
               icon: const Icon(Icons.person_add_outlined),
