@@ -119,6 +119,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Create your account'), findsOneWidget);
 
+      // The form may extend beyond the default 800x600 test viewport when
+      // actor tiles are also present — scroll Cancel into view before tapping.
+      await tester.ensureVisible(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
