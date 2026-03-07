@@ -93,7 +93,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     _CreateAccountForm(
                       onCreated: (actor) async {
                         setState(() => _showCreateForm = false);
-                        await _loginAs(actor);
+                        _loginAs(actor);
                       },
                       onCancel: actors.isNotEmpty ? _toggleCreateForm : null,
                     )

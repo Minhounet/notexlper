@@ -54,7 +54,7 @@ class ChecklistListNotifier
         // current actor only.
         final visibleIds = _workspaceMemberIds.isNotEmpty
             ? _workspaceMemberIds
-            : (_currentActorId != null ? [_currentActorId!] : <String>[]);
+            : (_currentActorId != null ? [_currentActorId] : <String>[]);
 
         if (visibleIds.isEmpty) {
           state = AsyncValue.data(notes);
