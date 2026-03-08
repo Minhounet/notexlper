@@ -44,6 +44,13 @@ class FakeActorDataSource implements ActorDataSource {
     return _actors[id];
   }
 
+  @override
+  Future<Actor> createActor(Actor actor) async {
+    await _simulateDelay();
+    _actors[actor.id] = actor;
+    return actor;
+  }
+
   /// Clears all data - useful for testing
   void clear() {
     _actors.clear();
