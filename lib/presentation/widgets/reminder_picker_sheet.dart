@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/reminder.dart';
 
@@ -105,8 +106,7 @@ class _ReminderPickerSheetState extends State<ReminderPickerSheet> {
     }
 
     final reminder = Reminder(
-      id: widget.existingReminder?.id ??
-          'reminder-${DateTime.now().millisecondsSinceEpoch}',
+      id: widget.existingReminder?.id ?? const Uuid().v4(),
       dateTime: dateTime,
       frequency: _frequency,
     );

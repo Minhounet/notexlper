@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/category.dart';
 
@@ -115,8 +116,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
             if (name.isEmpty) return;
 
             final category = Category(
-              id: widget.category?.id ??
-                  'cat-${DateTime.now().millisecondsSinceEpoch}',
+              id: widget.category?.id ?? const Uuid().v4(),
               name: name,
               colorValue: _selectedColor.value,
             );

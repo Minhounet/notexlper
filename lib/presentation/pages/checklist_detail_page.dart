@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -140,7 +141,7 @@ class _ChecklistDetailPageState extends ConsumerState<ChecklistDetailPage> {
 
   void _addItem() {
     final newItem = ChecklistItem(
-      id: 'item-${DateTime.now().millisecondsSinceEpoch}',
+      id: const Uuid().v4(),
       text: '',
       order: _note.items.length,
     );

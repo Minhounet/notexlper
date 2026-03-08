@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import '../../../domain/entities/checklist_item.dart';
 import '../../../domain/entities/checklist_note.dart';
 import '../checklist_datasource.dart';
@@ -16,25 +18,26 @@ class FakeChecklistDataSource implements ChecklistDataSource {
   }
 
   void _seedData() {
+    const uuid = Uuid();
     final now = DateTime.now();
     final sampleNote = ChecklistNote(
-      id: 'sample-1',
+      id: uuid.v4(),
       title: 'Sample Checklist',
       items: [
-        const ChecklistItem(
-          id: 'item-1',
+        ChecklistItem(
+          id: uuid.v4(),
           text: 'First task',
           isChecked: false,
           order: 0,
         ),
-        const ChecklistItem(
-          id: 'item-2',
+        ChecklistItem(
+          id: uuid.v4(),
           text: 'Second task',
           isChecked: true,
           order: 1,
         ),
         ChecklistItem(
-          id: 'item-3',
+          id: uuid.v4(),
           text: 'Third task with due date',
           isChecked: false,
           dueDate: now.add(const Duration(days: 7)),

@@ -263,13 +263,14 @@ class HomePage extends ConsumerWidget {
     final now = DateTime.now();
     final currentActor = ref.read(currentActorProvider);
     final creatorId = currentActor?.id;
+    const uuid = Uuid();
 
     final newNote = ChecklistNote(
-      id: 'note-${now.millisecondsSinceEpoch}',
+      id: uuid.v4(),
       title: '',
       items: [
         ChecklistItem(
-          id: 'item-${now.millisecondsSinceEpoch}',
+          id: uuid.v4(),
           text: '',
           order: 0,
         ),
