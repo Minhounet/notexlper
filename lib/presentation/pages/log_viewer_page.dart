@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/logging/app_logger.dart';
+import '../../core/logging/app_logger.dart' show AppLogger, LogEntry, LogNotifier;
 
 String _formatTime(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:'
@@ -18,6 +18,20 @@ class LogViewerPage extends StatefulWidget {
 }
 
 class _LogViewerPageState extends State<LogViewerPage> {
+  @override
+  void initState() {
+    super.initState();
+    LogNotifier.instance.addListener(_onLogsChanged);
+  }
+
+  @override
+  void dispose() {
+    LogNotifier.instance.removeListener(_onLogsChanged);
+    super.dispose();
+  }
+
+  void _onLogsChanged() => setState(() {});
+
   @override
   Widget build(BuildContext context) {
     final entries = AppLogger.instance.entries;
