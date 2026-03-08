@@ -41,31 +41,34 @@ class _LogViewerPageState extends State<LogViewerPage> {
       appBar: AppBar(
         title: const Text('Logs'),
         actions: [
-          if (entries.isNotEmpty) ...[
-            IconButton(
-              icon: const Icon(Icons.copy_all_outlined),
-              tooltip: 'Copy all logs',
-              onPressed: () {
-                final buffer = StringBuffer();
-                for (final e in entries.reversed) {
-                  buffer.writeln('[${_formatTime(e.timestamp)}] ${e.message}');
-                  if (e.error != null) buffer.writeln('  ↳ ${e.error}');
-                }
-                Clipboard.setData(ClipboardData(text: buffer.toString()));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('All logs copied')),
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'Clear logs',
-              onPressed: () {
-                AppLogger.instance.clear();
-                setState(() {});
-              },
-            ),
-          ],
+          IconButton(
+            icon: const Icon(Icons.copy_all_outlined),
+            tooltip: 'Copy all logs',
+            onPressed: entries.isEmpty
+                ? null
+                : () {
+                    final buffer = StringBuffer();
+                    for (final e in entries.reversed) {
+                      buffer.writeln(
+                          '[${_formatTime(e.timestamp)}] ${e.message}');
+                      if (e.error != null) buffer.writeln('  ↳ ${e.error}');
+                    }
+                    Clipboard.setData(ClipboardData(text: buffer.toString()));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('All logs copied')),
+                    );
+                  },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Clear logs',
+            onPressed: entries.isEmpty
+                ? null
+                : () {
+                    AppLogger.instance.clear();
+                    setState(() {});
+                  },
+          ),
         ],
       ),
       body: entries.isEmpty
