@@ -90,26 +90,25 @@ class HomePage extends ConsumerWidget {
         ),
         centerTitle: true,
         actions: [
-          if (AppConstants.isDev)
-            ListenableBuilder(
-              listenable: LogNotifier.instance,
-              builder: (context, _) {
-                final hasErrors = AppLogger.instance.entries
-                    .any((e) => e.error != null);
-                return IconButton(
-                  icon: Badge(
-                    isLabelVisible: hasErrors,
-                    child: const Icon(Icons.bug_report_outlined),
+          ListenableBuilder(
+            listenable: LogNotifier.instance,
+            builder: (context, _) {
+              final hasErrors =
+                  AppLogger.instance.entries.any((e) => e.error != null);
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: hasErrors,
+                  child: const Icon(Icons.bug_report_outlined),
+                ),
+                tooltip: 'View logs',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LogViewerPage(),
                   ),
-                  tooltip: 'View logs',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LogViewerPage(),
-                    ),
-                  ),
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
           if (workspace != null)
             IconButton(
               icon: const Icon(Icons.person_add_outlined),
