@@ -181,20 +181,34 @@ class SupabaseChecklistDataSource implements ChecklistDataSource {
       'reminder_id': note.reminder?.id,
     }).eq('id', note.id);
 
-    // 3. Replace items: delete then re-insert.
-    await _client.from('checklist_items').delete().eq('note_id', note.id);
+    // 3. Replace items: delete removed items then upsert current set.
+    //    Using upsert (instead of delete-all + insert) prevents duplicate-key
+    //    errors when concurrent save calls race each other.
+    final currentItemIds = note.items.map((i) => i.id).toList();
+    await _client
+        .from('checklist_items')
+        .delete()
+        .eq('note_id', note.id)
+        .not('id', 'in', currentItemIds.isEmpty ? [''] : currentItemIds);
     if (note.items.isNotEmpty) {
       await _client
           .from('checklist_items')
-          .insert(_itemsToJson(note.id, note.items));
+          .upsert(_itemsToJson(note.id, note.items), onConflict: 'id');
     }
 
-    // 4. Replace assignees: delete then re-insert.
-    await _client.from('note_assignees').delete().eq('note_id', note.id);
+    // 4. Replace assignees: delete removed then upsert current set.
+    final currentActorIds = note.assigneeIds;
+    await _client
+        .from('note_assignees')
+        .delete()
+        .eq('note_id', note.id)
+        .not('actor_id', 'in',
+            currentActorIds.isEmpty ? [''] : currentActorIds);
     if (note.assigneeIds.isNotEmpty) {
-      await _client
-          .from('note_assignees')
-          .insert(_assigneesToJson(note.id, note.assigneeIds));
+      await _client.from('note_assignees').upsert(
+            _assigneesToJson(note.id, note.assigneeIds),
+            onConflict: 'note_id,actor_id',
+          );
     }
 
     return note;
