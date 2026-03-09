@@ -4,18 +4,17 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:uuid/uuid.dart';
 
 import 'core/constants/app_constants.dart';
 import 'data/services/device_session_service.dart';
 import 'data/services/fake_notification_service.dart';
 import 'data/services/local_notification_service.dart';
-import 'domain/entities/actor.dart';
-import 'domain/entities/workspace.dart';
 import 'domain/services/notification_service.dart';
+import 'presentation/pages/auth_page.dart';
 import 'presentation/pages/home_page.dart';
 import 'presentation/pages/splash_page.dart';
 import 'presentation/providers/actor_providers.dart';
+import 'presentation/providers/auth_providers.dart';
 import 'presentation/providers/notification_providers.dart';
 import 'presentation/providers/workspace_providers.dart';
 
@@ -80,11 +79,15 @@ class NotexlperApp extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// SplashWrapper — boots the session then navigates to Home.
+// SplashWrapper — boots the session then navigates to Home or AuthPage.
 //
-// On first launch  : auto-creates an actor + workspace, saves the actor ID.
-// On later launches: reads the saved actor ID and logs in silently.
-// The login picker page is no longer in the main navigation flow.
+// Decision tree:
+//   1. Check remember_me + stored actor ID in SharedPreferences.
+//   2. If both present:
+//      - Prod: also verify Supabase session is still valid.
+//      - Try to restore actor from repository.
+//      - Success → HomePage.
+//   3. Otherwise → AuthPage (first launch shows "Create Account" tab).
 // ---------------------------------------------------------------------------
 class SplashWrapper extends ConsumerStatefulWidget {
   const SplashWrapper({super.key});
@@ -95,6 +98,7 @@ class SplashWrapper extends ConsumerStatefulWidget {
 
 class _SplashWrapperState extends ConsumerState<SplashWrapper> {
   bool _ready = false;
+  bool _needsAuth = true;
 
   @override
   void initState() {
@@ -102,8 +106,6 @@ class _SplashWrapperState extends ConsumerState<SplashWrapper> {
     _boot();
   }
 
-  /// Runs the minimum splash duration and session init in parallel,
-  /// then navigates to the home screen.
   Future<void> _boot() async {
     await Future.wait([
       Future.delayed(const Duration(seconds: 2)),
@@ -112,92 +114,53 @@ class _SplashWrapperState extends ConsumerState<SplashWrapper> {
     if (mounted) setState(() => _ready = true);
   }
 
-  /// Resolves (or creates) the actor for this device.
+  /// Checks for a stored session and restores it, or sets [_needsAuth] = true.
   Future<void> _initSession() async {
-    final storedId = await DeviceSessionService.getActorId();
+    final rememberMe = await DeviceSessionService.getRememberMe();
+    final storedActorId = await DeviceSessionService.getActorId();
 
-    if (storedId != null) {
-      // Known device — try to restore the actor.
-      final result =
-          await ref.read(actorRepositoryProvider).getActorById(storedId);
-      await result.fold(
-        // Actor was deleted (e.g. DB reset) — provision a fresh one.
-        (failure) async => _autoCreate(),
-        (actor) async {
-          ref.read(currentActorProvider.notifier).login(actor);
-          ref
-              .read(currentWorkspaceProvider.notifier)
-              .loadForOwner(actor.id)
-              .ignore();
-        },
-      );
+    if (storedActorId == null || !rememberMe) {
+      _needsAuth = true;
       return;
     }
 
-    // First launch on this device.
-    if (AppConstants.isDev) {
-      // Dev: auto-select the first seeded actor ("Me") for convenience.
-      final allResult =
-          await ref.read(actorRepositoryProvider).getAllActors();
-      final actors = allResult.getOrElse(() => []);
-      if (actors.isNotEmpty) {
-        final actor = actors.first;
-        await DeviceSessionService.saveActorId(actor.id);
+    // In prod, also verify the Supabase session is still alive.
+    if (AppConstants.isProd) {
+      final userId =
+          await ref.read(authRepositoryProvider).getCurrentUserId();
+      if (userId == null) {
+        _needsAuth = true;
+        return;
+      }
+    }
+
+    // Try to restore the actor from the repository.
+    final result =
+        await ref.read(actorRepositoryProvider).getActorById(storedActorId);
+    result.fold(
+      (failure) {
+        // Actor was deleted or DB was reset — require re-login.
+        _needsAuth = true;
+      },
+      (actor) {
         ref.read(currentActorProvider.notifier).login(actor);
         ref
             .read(currentWorkspaceProvider.notifier)
             .loadForOwner(actor.id)
             .ignore();
-        return;
-      }
-    }
-
-    // Prod (or dev with empty data): create a brand-new account.
-    await _autoCreate();
-  }
-
-  /// Creates a new actor + workspace and saves the actor ID to the device.
-  Future<void> _autoCreate() async {
-    const uuid = Uuid();
-    final actor = Actor(
-      id: uuid.v4(),
-      name: 'My Account',
-      colorValue: 0xFF6200EE,
-    );
-
-    final actorResult =
-        await ref.read(actorRepositoryProvider).createActor(actor);
-
-    await actorResult.fold(
-      (failure) async {
-        debugPrint('Auto-create actor failed: ${failure.message}');
-      },
-      (created) async {
-        await DeviceSessionService.saveActorId(created.id);
-        ref.read(currentActorProvider.notifier).login(created);
-
-        final workspace = Workspace(
-          id: uuid.v4(),
-          name: 'My Workspace',
-          ownerId: created.id,
-          memberIds: [created.id],
-        );
-        final wsResult = await ref
-            .read(currentWorkspaceProvider.notifier)
-            .createWorkspace(workspace);
-        wsResult.fold(
-          (failure) =>
-              debugPrint('Auto-create workspace failed: ${failure.message}'),
-          (_) {},
-        );
+        _needsAuth = false;
       },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // SplashPage is purely visual; navigation is driven by _ready.
-    return _ready ? const HomePage() : const SplashPage();
+    if (!_ready) return const SplashPage();
+    if (_needsAuth) {
+      return AuthPage(
+        onAuthenticated: () => setState(() => _needsAuth = false),
+      );
+    }
+    return const HomePage();
   }
 }
-
