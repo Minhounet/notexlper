@@ -30,3 +30,8 @@ class ValidationFailure extends Failure {
 class NotFoundFailure extends Failure {
   const NotFoundFailure([super.message = 'Resource not found']);
 }
+
+/// Failure when authentication or authorization fails
+class AuthFailure extends Failure {
+  const AuthFailure([super.message = 'Authentication failed']);
+}

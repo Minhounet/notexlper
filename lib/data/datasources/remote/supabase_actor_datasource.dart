@@ -31,6 +31,7 @@ class SupabaseActorDataSource implements ActorDataSource {
   @override
   Future<Actor> createActor(Actor actor) async {
     final data = await _client.from('actors').insert({
+      'id': actor.id,
       'name': actor.name,
       'color_value': actor.colorValue,
     }).select().single();
