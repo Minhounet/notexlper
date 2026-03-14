@@ -16,7 +16,8 @@ void main() {
   late FakeActorDataSource actorDataSource;
   late FakeWorkspaceDataSource workspaceDataSource;
 
-  const submitBtnKey = Key('auth-submit-btn');
+  const createSubmitKey = Key('auth-submit-btn-create');
+  const signinSubmitKey = Key('auth-submit-btn-signin');
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -75,7 +76,7 @@ void main() {
     testWidgets('shows validation error when username is empty', (tester) async {
       await tester.pumpWidget(createAuthPage());
 
-      await tester.tap(find.byKey(submitBtnKey));
+      await tester.tap(find.byKey(createSubmitKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Username is required'), findsOneWidget);
@@ -89,7 +90,7 @@ void main() {
           find.widgetWithText(TextFormField, 'Username'), 'alice');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Password'), '123');
-      await tester.tap(find.byKey(submitBtnKey));
+      await tester.tap(find.byKey(createSubmitKey));
       await tester.pumpAndSettle();
 
       expect(find.text('At least 6 characters'), findsOneWidget);
@@ -105,7 +106,7 @@ void main() {
           find.widgetWithText(TextFormField, 'Password'), 'pass123');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Confirm password'), 'different');
-      await tester.tap(find.byKey(submitBtnKey));
+      await tester.tap(find.byKey(createSubmitKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Passwords do not match'), findsOneWidget);
@@ -136,7 +137,7 @@ void main() {
           find.widgetWithText(TextFormField, 'Password'), 'pass123');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Confirm password'), 'pass123');
-      await tester.tap(find.byKey(submitBtnKey));
+      await tester.tap(find.byKey(createSubmitKey));
       await tester.pumpAndSettle();
 
       expect(called, true);
@@ -156,7 +157,7 @@ void main() {
           find.widgetWithText(TextFormField, 'Username'), 'me');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Password'), 'password');
-      await tester.tap(find.byKey(submitBtnKey));
+      await tester.tap(find.byKey(signinSubmitKey));
       await tester.pumpAndSettle();
 
       expect(called, true);
@@ -172,7 +173,7 @@ void main() {
           find.widgetWithText(TextFormField, 'Username'), 'nobody');
       await tester.enterText(
           find.widgetWithText(TextFormField, 'Password'), 'wrong');
-      await tester.tap(find.byKey(submitBtnKey));
+      await tester.tap(find.byKey(signinSubmitKey));
       await tester.pumpAndSettle();
 
       expect(find.byType(SnackBar), findsOneWidget);

@@ -276,7 +276,7 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
           const SizedBox(height: 12),
           // Submit
           FilledButton(
-            key: const Key('auth-submit-btn'),
+            key: Key(_isCreate ? 'auth-submit-btn-create' : 'auth-submit-btn-signin'),
             onPressed: isLoading ? null : _submit,
             child: isLoading
                 ? const SizedBox(
