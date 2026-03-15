@@ -227,7 +227,7 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
             onFieldSubmitted: _isCreate ? null : (_) => _submit(),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Password is required';
-              if (v.length < 6) return 'At least 6 characters';
+              if (_isCreate && v.length < 6) return 'At least 6 characters';
               return null;
             },
           ),
