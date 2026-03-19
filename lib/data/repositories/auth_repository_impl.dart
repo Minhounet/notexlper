@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/error/failures.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -16,7 +17,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final id = await _dataSource.signUp(username, password);
       return Right(id);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AuthRepository] signUp error: $e\n$st');
       return Left(AuthFailure(e.toString()));
     }
   }
@@ -27,7 +29,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final id = await _dataSource.signIn(username, password);
       return Right(id);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AuthRepository] signIn error: $e\n$st');
       return Left(AuthFailure(e.toString()));
     }
   }
@@ -37,7 +40,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _dataSource.signOut();
       return const Right(null);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AuthRepository] signOut error: $e\n$st');
       return Left(AuthFailure(e.toString()));
     }
   }
