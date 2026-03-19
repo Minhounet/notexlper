@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/auth_debug_log.dart';
 import '../providers/auth_providers.dart';
 
 /// Full-screen authentication page.
@@ -107,6 +110,10 @@ class _AuthPageState extends ConsumerState<AuthPage>
                     ],
                   ),
                 ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 16),
+                  const _AuthDebugPanel(),
+                ],
               ],
             ),
           ),
@@ -288,6 +295,160 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                   )
                 : Text(_isCreate ? 'Create Account' : 'Sign In'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Debug log panel — only rendered when kDebugMode is true.
+// ---------------------------------------------------------------------------
+
+class _AuthDebugPanel extends ConsumerStatefulWidget {
+  const _AuthDebugPanel();
+
+  @override
+  ConsumerState<_AuthDebugPanel> createState() => _AuthDebugPanelState();
+}
+
+class _AuthDebugPanelState extends ConsumerState<_AuthDebugPanel> {
+  bool _expanded = false;
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _copyAll(List<String> lines) {
+    final text = lines.join('\n');
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Log copied to clipboard'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logAsync = ref.watch(authDebugLogProvider);
+    final lines = logAsync.valueOrNull ?? AuthDebugLog.lines;
+    final theme = Theme.of(context);
+
+    // Auto-scroll to bottom when new lines arrive.
+    ref.listen(authDebugLogProvider, (_, next) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) {
+          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+        }
+      });
+    });
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(200),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header row
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bug_report_outlined,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Debug log (${lines.length} lines)',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const Spacer(),
+                  if (lines.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: 'Copy all',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _copyAll(lines),
+                    ),
+                  const SizedBox(width: 8),
+                  if (lines.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      tooltip: 'Clear',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => AuthDebugLog.clear(),
+                    ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Log body
+          if (_expanded)
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(8),
+                ),
+              ),
+              child: lines.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No logs yet — try signing in.',
+                        style: TextStyle(color: Colors.white54, fontSize: 11),
+                      ),
+                    )
+                  : Scrollbar(
+                      controller: _scroll,
+                      child: ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.all(8),
+                        itemCount: lines.length,
+                        itemBuilder: (_, i) {
+                          final line = lines[i];
+                          final isError = line.contains('✗') ||
+                              line.contains('FAIL') ||
+                              line.contains('error');
+                          return SelectableText(
+                            line,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              color: isError
+                                  ? Colors.redAccent
+                                  : Colors.greenAccent,
+                              height: 1.4,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
         ],
       ),
     );
