@@ -90,7 +90,7 @@ class _AuthPageState extends ConsumerState<AuthPage>
                 const SizedBox(height: 24),
                 // Tab views
                 SizedBox(
-                  height: 320,
+                  height: 430,
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -198,10 +198,12 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
             autocorrect: false,
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Username is required';
-              if (v.trim().length < 3) return 'At least 3 characters';
-              if (v.trim().length > 30) return 'At most 30 characters';
-              if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v.trim())) {
-                return 'Only letters, numbers and underscores';
+              if (_isCreate) {
+                if (v.trim().length < 3) return 'At least 3 characters';
+                if (v.trim().length > 30) return 'At most 30 characters';
+                if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v.trim())) {
+                  return 'Only letters, numbers and underscores';
+                }
               }
               return null;
             },
