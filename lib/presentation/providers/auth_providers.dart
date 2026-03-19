@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/error/failures.dart';
+import '../../core/utils/auth_debug_log.dart';
 import '../../data/datasources/auth_datasource.dart';
 import '../../data/datasources/local/fake_auth_datasource.dart';
 import '../../data/datasources/remote/supabase_auth_datasource.dart';
@@ -16,6 +17,12 @@ import '../../domain/entities/workspace.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'actor_providers.dart';
 import 'workspace_providers.dart';
+
+/// Streams the auth debug log lines to the UI.
+final authDebugLogProvider = StreamProvider<List<String>>((ref) async* {
+  yield AuthDebugLog.lines; // current buffer immediately
+  yield* AuthDebugLog.stream; // then live updates
+});
 
 /// Predefined avatar colours for auto-assignment on account creation.
 const _kAvatarColors = [
@@ -62,16 +69,20 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     String password,
     bool rememberMe,
   ) async {
+    AuthDebugLog.add('signUp: attempting for username="$username" '
+        'env=${AppConstants.environment}');
     state = const AsyncValue.loading();
     final authResult = await _authRepo.signUp(username, password);
 
     if (authResult.isLeft()) {
       final failure = authResult.swap().getOrElse(() => const AuthFailure());
+      AuthDebugLog.add('signUp: FAILED — ${failure.message}');
       state = AsyncValue.error(failure.message, StackTrace.current);
       return Left(failure);
     }
 
     final userId = authResult.getOrElse(() => '');
+    AuthDebugLog.add('signUp: auth OK, userId=$userId — creating actor…');
     return _postAuthSetup(
         userId: userId, username: username, rememberMe: rememberMe);
   }
@@ -82,21 +93,26 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     String password,
     bool rememberMe,
   ) async {
+    AuthDebugLog.add('signIn: attempting for username="$username" '
+        'env=${AppConstants.environment}');
     state = const AsyncValue.loading();
     final authResult = await _authRepo.signIn(username, password);
 
     if (authResult.isLeft()) {
       final failure = authResult.swap().getOrElse(() => const AuthFailure());
+      AuthDebugLog.add('signIn: FAILED — ${failure.message}');
       state = AsyncValue.error(failure.message, StackTrace.current);
       return Left(failure);
     }
 
     final userId = authResult.getOrElse(() => '');
+    AuthDebugLog.add('signIn: auth OK, userId=$userId — loading actor…');
     final actorResult =
         await _ref.read(actorRepositoryProvider).getActorById(userId);
 
     if (actorResult.isLeft()) {
       final failure = actorResult.swap().getOrElse(() => const AuthFailure());
+      AuthDebugLog.add('signIn: actor load FAILED — ${failure.message}');
       state = AsyncValue.error(failure.message, StackTrace.current);
       return Left(failure);
     }
@@ -104,6 +120,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     final actor = actorResult.getOrElse(
       () => throw StateError('actor must exist at this point'),
     );
+    AuthDebugLog.add('signIn: success — actor="${actor.name}"');
     await _finalizeSession(actor, rememberMe, loadWorkspace: true);
     return const Right(null);
   }
@@ -137,6 +154,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
     if (actorResult.isLeft()) {
       final failure = actorResult.swap().getOrElse(() => const AuthFailure());
+      AuthDebugLog.add('signUp: actor creation FAILED — ${failure.message}');
       state = AsyncValue.error(failure.message, StackTrace.current);
       return Left(failure);
     }
@@ -144,6 +162,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     final createdActor = actorResult.getOrElse(
       () => throw StateError('actor must exist at this point'),
     );
+    AuthDebugLog.add('signUp: actor created — id=${createdActor.id}');
 
     // Auto-create workspace.
     final workspace = Workspace(
@@ -157,9 +176,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         .createWorkspace(workspace);
 
     wsResult.fold(
-      (failure) =>
-          debugPrint('Workspace creation failed: ${failure.message}'),
-      (_) {},
+      (failure) {
+        AuthDebugLog.add('signUp: workspace creation FAILED — ${failure.message}');
+        debugPrint('Workspace creation failed: ${failure.message}');
+      },
+      (_) => AuthDebugLog.add('signUp: workspace created — all done'),
     );
 
     await _finalizeSession(createdActor, rememberMe, loadWorkspace: false);
