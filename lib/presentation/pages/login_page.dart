@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/auth_debug_log.dart';
 import '../../domain/entities/actor.dart';
 import '../../domain/entities/workspace.dart';
 import '../providers/actor_providers.dart';
@@ -34,12 +35,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       setState(() => _showCreateForm = !_showCreateForm);
 
   void _loginAs(Actor actor) {
+    AuthDebugLog.add('LoginPage: signing in as "${actor.name}" (id=${actor.id})');
     ref.read(currentActorProvider.notifier).login(actor);
     // Workspace loads in the background; the home page reacts via Riverpod.
     ref
         .read(currentWorkspaceProvider.notifier)
         .loadForOwner(actor.id)
         .ignore();
+    AuthDebugLog.add('LoginPage: login complete, navigating to home');
     widget.onLoggedIn();
   }
 
@@ -201,10 +204,16 @@ class _CreateAccountFormState extends ConsumerState<_CreateAccountForm> {
 
     const uuid = Uuid();
     final actorId = uuid.v4();
+    final name = _nameController.text.trim();
     final actor = Actor(
       id: actorId,
-      name: _nameController.text.trim(),
+      name: name,
       colorValue: _kAvatarColors[_selectedColorIndex].value,
+    );
+
+    AuthDebugLog.add(
+      'LoginPage: creating account name="$name" id=$actorId '
+      'color=#${actor.colorValue.toRadixString(16).padLeft(8, '0')}',
     );
 
     // 1. Create the actor.
@@ -215,6 +224,9 @@ class _CreateAccountFormState extends ConsumerState<_CreateAccountForm> {
 
     await actorResult.fold(
       (failure) async {
+        AuthDebugLog.add(
+          'LoginPage: account creation FAILED — ${failure.message}',
+        );
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -222,6 +234,10 @@ class _CreateAccountFormState extends ConsumerState<_CreateAccountForm> {
         );
       },
       (createdActor) async {
+        AuthDebugLog.add(
+          'LoginPage: account created successfully for "${createdActor.name}" (id=${createdActor.id})',
+        );
+
         // 2. Auto-create a personal workspace.
         final workspaceId = uuid.v4();
         final workspace = Workspace(
@@ -229,6 +245,10 @@ class _CreateAccountFormState extends ConsumerState<_CreateAccountForm> {
           name: "${createdActor.name}'s Workspace",
           ownerId: createdActor.id,
           memberIds: [createdActor.id],
+        );
+        AuthDebugLog.add(
+          'LoginPage: creating workspace "${workspace.name}" (id=$workspaceId) '
+          'for owner=${createdActor.id}',
         );
         final wsResult = await ref
             .read(currentWorkspaceProvider.notifier)
@@ -239,9 +259,16 @@ class _CreateAccountFormState extends ConsumerState<_CreateAccountForm> {
         wsResult.fold(
           (failure) {
             // Non-fatal: workspace creation failed, log and continue.
+            AuthDebugLog.add(
+              'LoginPage: workspace creation FAILED — ${failure.message}',
+            );
             debugPrint('Workspace creation failed: ${failure.message}');
           },
-          (_) {},
+          (_) {
+            AuthDebugLog.add(
+              'LoginPage: workspace created successfully (id=$workspaceId)',
+            );
+          },
         );
 
         setState(() => _isLoading = false);
